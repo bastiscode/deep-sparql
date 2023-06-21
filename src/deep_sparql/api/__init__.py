@@ -1,1 +1,1 @@
-from spelling_correction.api.corrector import SpellingCorrector
+from deep_sparql.api.generator import SPARQLGenerator
