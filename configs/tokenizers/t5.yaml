@@ -1,0 +1,7 @@
+tokenize:
+  type: huggingface
+  name: t5-small
+special:
+  tokens: 
+    - <pad>
+  pad: <pad>

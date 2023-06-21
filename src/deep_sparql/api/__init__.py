@@ -1,0 +1,1 @@
+from spelling_correction.api.corrector import SpellingCorrector

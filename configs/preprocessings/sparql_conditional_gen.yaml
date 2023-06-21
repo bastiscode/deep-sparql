@@ -1,0 +1,5 @@
+type: chain
+configs:
+  - type: clean
+  - type: prefix
+    prefix: pad(Generate SPARQL query >>;0;1; )

@@ -1,0 +1,5 @@
+type: chain
+configs:
+  - file(sparql_conditional_gen.yaml)
+  - type: concatenate
+    separator: pad(>>;1;1; )

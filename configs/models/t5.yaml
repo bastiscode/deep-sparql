@@ -1,0 +1,2 @@
+type: pretrained_encoder_decoder
+name: t5-small

@@ -1,0 +1,11 @@
+# the t5 output tokenizer always prepends <pad>
+# as start of sequence token
+tokenize:
+  type: huggingface
+  name: t5-small
+special:
+  tokens: 
+    - <pad>
+  pad: <pad>
+  prefix:
+    - <pad>
