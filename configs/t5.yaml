@@ -36,7 +36,7 @@ train:
   data:
     strategy: weighted
     shuffle: true
-    sort: true
+    sort: env(SORT:false)
     limit: env(TRAIN_LIMIT:null)
     max_length: env(MAX_LENGTH:512)
     buffer_size: env(BUFFER_SIZE:512)
