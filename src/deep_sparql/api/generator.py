@@ -6,9 +6,10 @@ from typing import Any, Dict, List, Tuple, Optional, Union, Iterator
 import torch
 from torch import nn
 
-from deep_sparql.model import model_from_config
+from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
+from deep_sparql.utils import prepare_sparql_query
 
-from text_correction_utils import data, tokenization
+from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
 from text_correction_utils.api.utils import device_info, to
@@ -97,7 +98,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self.set_precision(precision)
         self.logger.debug(f"loaded model config:\n{self.cfg['model']}")
         self.logger.info(
-            f"running {self.name} spelling corrector "
+            f"running {self.name} SPARQL generator "
             f"on device {device_info(self.device)}"
         )
         self.input_tokenizer = tokenization.Tokenizer.from_config(
@@ -113,43 +114,24 @@ class SPARQLGenerator(corrector.TextCorrector):
         # some options for inference
         self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
-            tokenization.SpecialTokens.EOS
+            "</s>"
         )
         self._strategy = "greedy"
         self._beam_width = 5
         self._sample_top_k = 5
         assert self._eos_token_id is not None
 
+        self._entity_index = None
+        self._property_index = None
+
     def _build_inference_loader_config(self) -> Dict[str, Any]:
-        input_tokenizer = tokenization.Tokenizer.from_config(
-            self.cfg["input_tokenizer"]
-        )
-        pfx = input_tokenizer.num_prefix_tokens()
-        sfx = input_tokenizer.num_suffix_tokens()
-
-        # use the training max sequence length here,
-        # even though some models work with arbitrary long sequences
-        # (e.g. LSTM), for better accuracy
-        max_length = self.max_length - pfx - sfx
-        if self.cfg["input_tokenizer"]["tokenize"]["type"] in {"byte", "bpe"}:
-            window_cfg = {
-                "type": "byte",
-                "max_bytes": max_length,
-                "context_bytes": 0
-            }
-        else:
-            raise ValueError(
-                "the input tokenizer must be of type 'byte' or 'bpe' \
-                for spelling correction"
-            )
-
         return {
             "tokenizer_config": self.cfg["input_tokenizer"],
-            "window_config": window_cfg,
+            "window_config": {"type": "full"}
         }
 
     def _prepare_batch(self, batch: data.InferenceBatch) -> Dict[str, Any]:
-        token_ids_np, pad_mask_np, lengths, info = batch.tensors()
+        token_ids_np, pad_mask_np, *_ = batch.tensors()
         inputs = {
             "token_ids": torch.from_numpy(token_ids_np).to(
                 non_blocking=True,
@@ -159,14 +141,12 @@ class SPARQLGenerator(corrector.TextCorrector):
                 non_blocking=True,
                 device=self.device
             ),
-            "lengths": lengths,
-            **to(info, self.device)
         }
         return inputs
 
     def _inference(self, inputs: Dict[str, Any]) -> Any:
-        assert isinstance(self.model, EncoderDecoderWithHead)
-        enc, kwargs = self.model.encode(**inputs)
+        assert isinstance(self.model, PretrainedEncoderDecoder)
+        enc = self.model.encode(**inputs)
 
         # decode fn gets in token ids and additional kwargs,
         # and return logits over next tokens
@@ -174,11 +154,11 @@ class SPARQLGenerator(corrector.TextCorrector):
             token_ids: torch.Tensor,
             **kwargs: Any
         ) -> torch.Tensor:
-            assert isinstance(self.model, EncoderDecoderWithHead)
+            assert isinstance(self.model, PretrainedEncoderDecoder)
             dec = self.model.decode(
                 token_ids,
-                kwargs.pop("memories"),
-                **kwargs
+                kwargs.pop("memory"),
+                kwargs.pop("memory_padding_mask"),
             )
             return dec
 
@@ -187,17 +167,9 @@ class SPARQLGenerator(corrector.TextCorrector):
             mask: torch.Tensor
         ) -> Dict[str, Any]:
             return {
-                "memories": {
-                    k: v[mask]
-                    for k, v in kwargs["memories"].items()
-                },
-                "memory_padding_masks": {
-                    k: v[mask]
-                    for k, v in kwargs["memory_padding_masks"].items()
-                }
+                "memory": kwargs["memory"][mask],
+                "memory_padding_mask": kwargs["memory_padding_mask"][mask]
             }
-
-        max_output_length = self.cfg["model"]["decoder_embedding"]["max_length"]
 
         initial_token_ids = [
             self._initial_token_ids
@@ -209,15 +181,15 @@ class SPARQLGenerator(corrector.TextCorrector):
                 initial_token_ids=initial_token_ids,
                 vocab_size=self.output_tokenizer.vocab_size(),
                 pad_token_id=self.output_tokenizer.pad_token_id(),
-                max_length=max_output_length,
+                max_length=self.max_length,
                 stop_fn=stop_fn,
                 device=self.device,
                 normalize_by_length=True,
                 alpha=1.0,
                 beam_width=self._beam_width,
                 kwargs_select_fn=_kwargs_select_fn,
-                memories=enc,
-                **kwargs
+                memory=enc,
+                memory_padding_mask=inputs["padding_mask"],
             )
             return [output[0].token_ids for output in outputs]
         elif self._strategy == "sample" and self._sample_top_k > 1:
@@ -225,26 +197,26 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decode_fn=_decode_fn,
                 initial_token_ids=initial_token_ids,
                 pad_token_id=self.output_tokenizer.pad_token_id(),
-                max_length=max_output_length,
+                max_length=self.max_length,
                 select_fn=sample_select_fn(self._sample_top_k),
                 stop_fn=stop_fn,
                 device=self.device,
                 kwargs_select_fn=_kwargs_select_fn,
-                memories=enc,
-                **kwargs
+                memory=enc,
+                memory_padding_mask=inputs["padding_mask"],
             )
         else:
             return search(
                 decode_fn=_decode_fn,
                 initial_token_ids=initial_token_ids,
                 pad_token_id=self.output_tokenizer.pad_token_id(),
-                max_length=max_output_length,
+                max_length=self.max_length,
                 select_fn=greedy_select_fn(),
                 stop_fn=stop_fn,
                 device=self.device,
                 kwargs_select_fn=_kwargs_select_fn,
-                memories=enc,
-                **kwargs
+                memory=enc,
+                memory_padding_mask=inputs["padding_mask"],
             )
 
     def _process_results(
@@ -269,15 +241,39 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._beam_width = beam_width
         self._sample_top_k = sample_top_k
 
+    def set_indices(
+        self,
+        entity_index: Optional[Union[str, prefix.Vec]] = None,
+        property_index: Optional[Union[str, prefix.Vec]] = None,
+    ) -> None:
+        if entity_index is not None:
+            if isinstance(entity_index, str):
+                entity_index = prefix.Vec.load(entity_index)
+            self._entity_index = entity_index
+        if property_index is not None:
+            if isinstance(property_index, str):
+                property_index = prefix.Vec.load(property_index)
+            self._property_index = property_index
+
+    @property
+    def has_indices(self) -> bool:
+        return self._entity_index is not None \
+            and self._property_index is not None
+
+    def get_indices(self) -> Optional[Tuple[prefix.Vec, prefix.Vec]]:
+        if self.has_indices:
+            return self._entity_index, self._property_index
+        return None
+
     def correct_text(
-            self,
-            inputs: Union[str, List[str]],
-            languages: Optional[List[str]] = None,
-            batch_size: int = 16,
-            batch_max_tokens: Optional[int] = None,
-            sort: bool = True,
-            num_threads: Optional[int] = None,
-            show_progress: bool = False
+        self,
+        inputs: Union[str, List[str]],
+        languages: Optional[List[str]] = None,
+        batch_size: int = 16,
+        batch_max_tokens: Optional[int] = None,
+        sort: bool = True,
+        num_threads: Optional[int] = None,
+        show_progress: bool = False
     ) -> Union[str, List[str]]:
         input_is_string = isinstance(inputs, str)
         assert (

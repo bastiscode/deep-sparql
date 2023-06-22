@@ -4,6 +4,7 @@ from typing import Dict, List, Callable, Any, Tuple
 
 
 from text_correction_utils import prefix
+from text_correction_utils.api.table import generate_table
 
 VAR_REGEX = r"\[bov\](.+?)\[eov\]"
 PROP_REGEX = r"\[bop\](.+?)\[eop\]"
@@ -17,6 +18,8 @@ WD_ENT_URL = "http://www.wikidata.org/entity/"
 WD_PROP_URL = "http://www.wikidata.org/prop/direct/"
 RDFS_URL = "http://www.w3.org/2000/01/rdf-schema#"
 WD_QLEVER_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+
+SPARQL_PREFIX = "Generate SPARQL query >> "
 
 
 def load_str_index(path: str) -> Dict[int, List[str]]:
@@ -172,33 +175,15 @@ def format_qlever_result(
     if len(columns) == 0:
         return "no bindings"
 
-    max_col_width = max(10, max_column_width - 4)  # account for "| " and " |"
-    max_col_widths = [
-        min(
-            max_col_width,
-            max(
-                len(obj[col]["value"]) if col in obj else 1
-                for obj in result
-            )
-        )
-        for col in columns
-    ]
-    lines = []
-
-    for obj in result:
-        values = []
-        for col, width in zip(columns, max_col_widths):
-            val = obj[col]["value"] if col in obj else "-"
-            val_strings = []
-            for i in range(0, len(val), width):
-                val_strings.append(val[i:i+width].ljust(width))
-            values.append(val_strings)
-
-        for i in range(max(len(v) for v in values)):
-            line = " | ".join(
-                v[i] if i < len(v) else ""
-                for v in values
-            )
-            lines.append(f"| {line} |")
-
-    return "\n".join(lines)
+    return generate_table(
+        headers=[columns],
+        data=[
+            [
+                obj[col]["value"] if col in obj else "-"
+                for col in columns
+            ]
+            for obj in result
+        ],
+        alignments=["left"] * len(columns),
+        max_column_width=max_column_width,
+    )

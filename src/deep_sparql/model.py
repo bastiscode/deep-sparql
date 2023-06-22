@@ -9,6 +9,7 @@ from text_correction_utils import tokenization
 
 from transformers import (
     MT5ForConditionalGeneration,
+    PreTrainedModel,
     T5ForConditionalGeneration,
     LlamaForCausalLM
 )
@@ -76,8 +77,36 @@ class PretrainedEncoderDecoder(Model):
             input_ids=token_ids,
             attention_mask=torch.logical_not(padding_mask).to(torch.float),
             decoder_input_ids=target_token_ids,
-        )
+        )  # type: ignore
         return output.logits, {}
+
+    def encode(
+        self,
+        token_ids: torch.Tensor,
+        padding_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        assert isinstance(self.model, PreTrainedModel)
+        output = self.model.encoder(
+            input_ids=token_ids,
+            attention_mask=torch.logical_not(padding_mask).to(torch.float),
+        )  # type: ignore
+        return output.last_hidden_state
+
+    def decode(
+        self,
+        token_ids: torch.Tensor,
+        memory: torch.Tensor,
+        memory_padding_mask: torch.Tensor
+    ) -> torch.Tensor:
+        assert isinstance(self.model, PreTrainedModel)
+        output = self.model(
+            decoder_input_ids=token_ids,
+            encoder_outputs=(memory, ),
+            attention_mask=torch.logical_not(
+                memory_padding_mask
+            ).to(torch.float),
+        )  # type: ignore
+        return output.logits
 
 
 class PretrainedDecoder(Model):
