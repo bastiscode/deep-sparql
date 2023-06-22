@@ -135,12 +135,7 @@ def postprocess_output(
 ) -> str:
     s = _replace(
         s,
-        r"(<bo[vepb]>)",
-        lambda p: " " + p.strip() + " "
-    )[0]
-    s = _replace(
-        s,
-        r"(<eo[vepb]>)",
+        r"(<[be]o[vepb]>)",
         lambda p: " " + p.strip() + " "
     )[0]
     return re.sub(r"\s+", " ", s).strip()
