@@ -135,15 +135,15 @@ def postprocess_output(
 ) -> str:
     s = _replace(
         s,
-        r"(<bo[vepb]>\s*)",
-        lambda p: " " + p.rstrip()
+        r"(<bo[vepb]>)",
+        lambda p: " " + p.strip() + " "
     )[0]
     s = _replace(
         s,
-        r"(\s*<eo[vepb]>)",
-        lambda p: p.lstrip() + " "
+        r"(<eo[vepb]>)",
+        lambda p: " " + p.strip() + " "
     )[0]
-    return re.sub(r"\s+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def prepare_sparql_query(
