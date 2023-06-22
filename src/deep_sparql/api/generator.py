@@ -7,19 +7,21 @@ import torch
 from torch import nn
 
 from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
-from deep_sparql.utils import prepare_sparql_query
 
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
-from text_correction_utils.api.utils import device_info, to
+from text_correction_utils.api.utils import device_info
 from text_correction_utils.inference import (
+    IdxSelectFn,
     eos_stop_fn,
     greedy_select_fn,
     sample_select_fn,
     search,
     beam_search
 )
+
+from deep_sparql.utils import postprocess_output
 
 _BASE_URL = "https://ad-publications.informatik.uni-freiburg.de/" \
     "ACL_whitespace_correction_transformer_BHW_2023.materials"
@@ -113,8 +115,9 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         # some options for inference
         self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
+        self._eos_token = "</s>"
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
-            "</s>"
+            self._eos_token
         )
         self._strategy = "greedy"
         self._beam_width = 5
@@ -123,6 +126,14 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         self._entity_index = None
         self._property_index = None
+
+        self._output_continuations = [
+            self.output_tokenizer.de_tokenize(
+                [self._eos_token_id, i, self._eos_token_id],
+                False
+            )[len(self._eos_token):-len(self._eos_token)]
+            for i in range(self.output_tokenizer.vocab_size())
+        ]
 
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
@@ -170,6 +181,10 @@ class SPARQLGenerator(corrector.TextCorrector):
                 "memory": kwargs["memory"][mask],
                 "memory_padding_mask": kwargs["memory_padding_mask"][mask]
             }
+
+        if self.has_indices:
+            def idx_select_fn(logits: torch.Tensor, idx: int) -> Tuple[int, float]:
+                return idx, logits[idx]
 
         initial_token_ids = [
             self._initial_token_ids
@@ -228,7 +243,8 @@ class SPARQLGenerator(corrector.TextCorrector):
             self.output_tokenizer.de_tokenize(output)
             for output in outputs
         )
-        return data.InferenceData(merged, language=items[0].data.language)
+        processed = postprocess_output(merged)
+        return data.InferenceData(processed, language=items[0].data.language)
 
     def set_inference_options(
         self,
@@ -311,7 +327,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             num_threads,
         )
 
-        progress_desc = f"Correcting spelling errors in " \
+        progress_desc = f"Generating SPARQL from " \
             f"{len(inputs)} sequences"
         progress_total = len(inputs)
         progress_unit = "seq"
@@ -353,7 +369,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             num_threads,
         )
 
-        progress_desc = "Correcting whitespaces in iterator"
+        progress_desc = "Generating SPARQL from iterator"
         progress_total = sys.maxsize
         progress_unit = "byte"
 
@@ -409,7 +425,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         file_name = input_file \
             if len(input_file) < 32 else f"...{input_file[-29:]}"
-        progress_desc = f"Correcting spelling in {file_name}"
+        progress_desc = f"Generating SPARQL from {file_name}"
         progress_total = os.path.getsize(input_file)
         progress_unit = "byte"
 

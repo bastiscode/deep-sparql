@@ -6,10 +6,9 @@ from typing import Dict, List, Callable, Any, Tuple
 from text_correction_utils import prefix
 from text_correction_utils.api.table import generate_table
 
-VAR_REGEX = r"\[bov\](.+?)\[eov\]"
-PROP_REGEX = r"\[bop\](.+?)\[eop\]"
-ENT_REGEX = r"\[boe\](.+?)\[eoe\]"
-BRACKET_REGEX = r"(\[bob\]|\[eob\])"
+VAR_REGEX = r"<bov>(.+?)<eov>"
+PROP_REGEX = r"<bop>(.+?)<eop>"
+ENT_REGEX = r"<boe>(.+?)<eoe>"
 
 SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
 WHERE_REGEX = r"WHERE\s*{(.*)}"
@@ -91,7 +90,7 @@ def replace_properties(s: str, index: prefix.Vec, prefix: str = "") -> str:
 
 
 def replace_brackets(s: str) -> str:
-    return s.replace("[bob]", "{").replace("[eob]", "}")
+    return s.replace("<bob>", "{").replace("<eob>", "}")
 
 
 def _label_statement(
@@ -129,6 +128,22 @@ def _inject_labels(
     label_s = " ".join(f"?{var}Label" for var in vars)
     s = s[:end].rstrip() + f" {label_s} " + s[end:].lstrip()
     return s
+
+
+def postprocess_output(
+    s: str
+) -> str:
+    s = _replace(
+        s,
+        r"(<bo[vepb]>\s*)",
+        lambda p: " " + p.rstrip()
+    )[0]
+    s = _replace(
+        s,
+        r"(\s*<eo[vepb]>)",
+        lambda p: p.lstrip() + " "
+    )[0]
+    return re.sub(r"\s+", " ", s)
 
 
 def prepare_sparql_query(

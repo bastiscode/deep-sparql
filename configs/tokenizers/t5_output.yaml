@@ -1,11 +1,19 @@
 # the t5 output tokenizer always prepends <pad>
-# as start of sequence token
+# as start of sequence token during decoding
 tokenize:
   type: huggingface
   name: t5-small
 special:
   tokens: 
     - <pad>
+    - <bob>
+    - <eob>
+    - <bov>
+    - <eov>
+    - <boe>
+    - <eoe>
+    - <bop>
+    - <eop>
   pad: <pad>
   prefix:
     - <pad>

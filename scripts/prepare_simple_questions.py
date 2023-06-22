@@ -17,11 +17,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, required=True)
     parser.add_argument("--input", type=str, required=True)
-    parser.add_argument(
-        "--brackets",
-        choices=["regular", "encoded"],
-        default="regular",
-    )
+    parser.add_argument("--bracket-begin", type=str, default="<bob>")
+    parser.add_argument("--bracket-end", type=str, default="<eob>")
+    parser.add_argument("--entity-begin", type=str, default="<boe>")
+    parser.add_argument("--entity-end", type=str, default="<eoe>")
+    parser.add_argument("--property-begin", type=str, default="<bop>")
+    parser.add_argument("--property-end", type=str, default="<eop>")
+    parser.add_argument("--var-begin", type=str, default="<bov>")
+    parser.add_argument("--var-end", type=str, default="<eov>")
     parser.add_argument("--target", type=str, required=True)
     parser.add_argument("--entity-index", type=str, required=True)
     parser.add_argument("--property-index", type=str, required=True)
@@ -29,17 +32,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def surround(s: str, c: str) -> str:
-    return f"[bo{c}]{s}[eo{c}]"
+def surround(s: str, op: str, cl: str) -> str:
+    return f"{op}{s}{cl}"
 
 
 def prepare(args: argparse.Namespace):
     entity_index = load_str_index(args.entity_index)
     property_index = load_str_index(args.property_index)
     inverse_index = load_id_index(args.inverse_index)
-
-    ob = "{" if args.brackets == "regular" else "[bob]"
-    cb = "}" if args.brackets == "regular" else "[eob]"
 
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
@@ -66,34 +66,38 @@ def prepare(args: argparse.Namespace):
                 if subj_id not in entity_index:
                     continue
                 subjs = [
-                    surround(subj, "e")
+                    surround(subj, args.entity_begin, args.entity_end)
                     for subj in entity_index[subj_id]
                 ]
-                objs = [surround(obj, "v")]
+                objs = [surround(obj, args.var_begin, args.var_end)]
             else:
                 obj_id = int(obj[1:])
                 if obj_id not in entity_index:
                     continue
                 objs = [
-                    surround(obj, "e")
+                    surround(obj, args.entity_begin, args.entity_end)
                     for obj in entity_index[obj_id]
                 ]
-                subjs = [surround(subj, "v")]
+                subjs = [surround(subj, args.var_begin, args.var_end)]
 
             prop_id = int(prop[1:])
             assert prop_id in property_index
             props = [
-                surround(prop, "p")
+                surround(prop, args.property_begin, args.property_end)
                 for prop in property_index[prop_id]
             ]
+
+            var = surround('x', args.var_begin, args.var_end)
 
             for subj in subjs:
                 for prop in props:
                     for obj in objs:
                         of.write(f"{question}\n")
                         tf.write(
-                            f"SELECT {surround('x', 'v')} "
-                            f"WHERE {ob} {subj} {prop} {obj} . {cb}\n"
+                            f"SELECT {var} "
+                            f"WHERE {args.bracket_begin} "
+                            f"{subj} {prop} {obj} . "
+                            f"{args.bracket_end}\n"
                         )
 
 

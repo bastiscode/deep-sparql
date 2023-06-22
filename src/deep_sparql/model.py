@@ -29,6 +29,7 @@ class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
         name: str,
+        vocab_size: int,
     ):
         super().__init__()
         assert name in {
@@ -62,6 +63,14 @@ class PretrainedEncoderDecoder(Model):
         else:
             self.model = T5ForConditionalGeneration.from_pretrained(
                 f"google/{name}"
+            )
+
+        num_emb, _ = self.model.get_input_embeddings().weight.shape  # type: ignore
+        if vocab_size > num_emb:
+            raise NotImplementedError(
+                f"vocab size {vocab_size:,} is larger than number of "
+                f"embeddings {num_emb:,}, resizing of embedding not "
+                "yet implemented"
             )
 
     def forward(
@@ -113,12 +122,11 @@ class PretrainedDecoder(Model):
     def __init__(
         self,
         name: str,
+        vocab_size: int,
         **kwargs: Any
     ):
         super().__init__()
-        assert name in {
-            "llama",
-        }
+        assert name in {"llama"}
 
         assert "llama_path" in kwargs
         self.model = LlamaForCausalLM.from_pretrained(kwargs["llama_path"])
@@ -126,15 +134,17 @@ class PretrainedDecoder(Model):
     def forward(
         self,
         token_ids: torch.Tensor,
-        labels: Optional[torch.Tensor] = None,
         **_: Any
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        assert labels is not None
-        output = self.model(
-            input_ids=token_ids,
-            labels=labels
-        )
-        return output.last_hidden_state, {"loss": output.loss}
+        output = self.model(input_ids=token_ids)  # type: ignore
+        return output.logits, {}
+
+    def decode(
+        self,
+        token_ids: torch.Tensor,
+    ) -> Tuple[torch.Tensor]:
+        output = self.model(input_ids=token_ids)  # type: ignore
+        return output.logits
 
 
 def model_from_config(
@@ -146,8 +156,16 @@ def model_from_config(
     model_type = cfg.pop("type")
 
     if model_type == "pretrained_encoder_decoder":
-        return PretrainedEncoderDecoder(**cfg)
+        assert output_tokenizer is not None
+        assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
+        return PretrainedEncoderDecoder(
+            **cfg,
+            vocab_size=input_tokenizer.vocab_size(),
+        )
     elif model_type == "pretrained_decoder":
-        return PretrainedDecoder(**cfg)
+        return PretrainedDecoder(
+            **cfg,
+            vocab_size=input_tokenizer.vocab_size(),
+        )
     else:
         raise ValueError(f"unknown model type {model_type}")
