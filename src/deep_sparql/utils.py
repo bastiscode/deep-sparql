@@ -70,14 +70,14 @@ def _replace(
 
 
 def replace_vars(s: str) -> Tuple[str, List[str]]:
-    return _replace(s, VAR_REGEX, lambda v: f"?{v}")
+    return _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
 
 
 def replace_entities(s: str, index: prefix.Vec, prefix: str = "") -> str:
     return _replace(
         s,
         ENT_REGEX,
-        lambda e: f"{prefix}Q{index.get(e.encode('utf8'))}"
+        lambda e: f"{prefix}Q{index.get(e.strip().encode('utf8'))}"
     )[0]
 
 
@@ -85,7 +85,7 @@ def replace_properties(s: str, index: prefix.Vec, prefix: str = "") -> str:
     return _replace(
         s,
         PROP_REGEX,
-        lambda p: f"{prefix}P{index.get(p.encode('utf8'))}"
+        lambda p: f"{prefix}P{index.get(p.strip().encode('utf8'))}"
     )[0]
 
 
