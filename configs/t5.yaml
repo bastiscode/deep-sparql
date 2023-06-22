@@ -23,13 +23,13 @@ train:
       ignore_index: -1
   optimizer:
     type: adamw
-    lr: env(LR:0.00001)
+    lr: env(LR:0.00005)
     weight_decay: 0.01
   lr_scheduler:
     type: multi_step_with_warmup
     warmup_steps: env(WARMUP_STEPS:0.01)
-    steps: [0.5, 0.75, 0.9]
-    factors: [0.5, 0.2, 0.1]
+    steps: [0.9]
+    factors: [0.1]
   metrics:
     text_generation:
       max_items: 8
