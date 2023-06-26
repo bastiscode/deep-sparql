@@ -14,7 +14,6 @@ from text_correction_utils.api import corrector
 from text_correction_utils.api.utils import device_info
 from text_correction_utils.inference import (
     IdxSelectFn,
-    IndicesSelectFn,
     beam_select_fn,
     eos_stop_fn,
     greedy_select_fn,
@@ -196,13 +195,15 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._entity_index = None
         self._property_index = None
 
-        self._output_continuations = [
+        self._output_conts = [
             self.output_tokenizer.de_tokenize(
                 [self._eos_token_id, i, self._eos_token_id],
                 False
             )[len(self._eos_token):-len(self._eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
+        self._initial_ent_conts = [True] * len(self._output_conts)
+        self._initial_prop_conts = [True] * len(self._output_conts)
 
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
@@ -256,18 +257,20 @@ class SPARQLGenerator(corrector.TextCorrector):
             if state.is_obj():
                 index: prefix.Vec = self._entity_index \
                     if state.is_ent() else self._property_index
-                decoded = self.output_tokenizer.de_tokenize(
-                    state.get_obj_token_ids()
-                ).lstrip()
-                decoded = decoded.encode("utf8")
-                conts = (
-                    index.contains_continuations(decoded)
-                    + [False] * (
-                        len(log_probs) -
-                        len(self._output_continuations)
+                token_ids = state.get_obj_token_ids()
+                if len(token_ids) == 0:
+                    conts = self._initial_ent_conts if state.is_ent() \
+                        else self._initial_prop_conts
+                    value = None
+                else:
+                    decoded = self.output_tokenizer.de_tokenize(
+                        token_ids
                     )
-                )
-                value = index.get(decoded)
+                    decoded = decoded.encode("utf8")
+                    conts = index.contains_continuations(decoded)
+                    value = index.get(decoded)
+
+                conts += [False] * (len(log_probs) - len(self._output_conts))
                 conts[self._eoe_token_id] = (
                     value is not None
                     and state.is_ent()
@@ -287,6 +290,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
             # update decoding state
             state.add(token_id)
+
             return token_id, log_probs[token_id].item()
 
         return _fn
@@ -400,15 +404,31 @@ class SPARQLGenerator(corrector.TextCorrector):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
             self._entity_index.set_continuations(
-                self._output_continuations
+                self._output_conts
             )
         if property_index is not None:
             if isinstance(property_index, str):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
             self._property_index.set_continuations(
-                self._output_continuations
+                self._output_conts
             )
+        if self.has_indices:
+            self._initial_ent_conts = [
+                len(cont.lstrip()) > 0
+                and (self._entity_index.contains(cont)
+                     or self._entity_index.contains(cont.strip()))
+                for cont in self._output_conts
+            ]
+            self._initial_prop_conts = [
+                len(cont.lstrip()) > 0
+                and (self._property_index.contains(cont)
+                     or self._property_index.contains(cont.strip()))
+                for cont in self._output_conts
+            ]
+        else:
+            self._initial_ent_conts = [True] * len(self._output_conts)
+            self._initial_prop_conts = [True] * len(self._output_conts)
 
     @property
     def has_indices(self) -> bool:
@@ -488,7 +508,8 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             )
 
-        return next(iter(outputs)).text if input_is_string else [output.text for output in outputs]
+        return next(iter(outputs)).text if input_is_string \
+            else [output.text for output in outputs]
 
     def correct_iter(
         self,
