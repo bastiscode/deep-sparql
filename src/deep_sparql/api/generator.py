@@ -270,7 +270,9 @@ class SPARQLGenerator(corrector.TextCorrector):
                     conts = index.contains_continuations(decoded)
                     value = index.get(decoded)
 
-                conts += [False] * (len(log_probs) - len(self._output_conts))
+                conts = conts + [False] * (
+                    len(log_probs) - len(self._output_conts)
+                )
                 conts[self._eoe_token_id] = (
                     value is not None
                     and state.is_ent()
