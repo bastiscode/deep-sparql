@@ -45,6 +45,10 @@ def parse_args() -> argparse.Namespace:
         "--overwrite",
         action="store_true",
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true"
+    )
     return parser.parse_args()
 
 
@@ -109,6 +113,9 @@ def build(args: argparse.Namespace):
         os.makedirs(os.path.dirname(args.output), exist_ok=True)
         vector_index.build(args.n_trees, n_jobs=-1)
         vector_index.save(args.output)
+
+    if not args.interactive:
+        return
 
     vector_index.load(args.output)
 
