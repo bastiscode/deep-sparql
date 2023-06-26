@@ -40,6 +40,12 @@ def prepare(args: argparse.Namespace):
     entity_index = load_str_index(args.entity_index)
     property_index = load_str_index(args.property_index)
     inverse_index = load_id_index(args.inverse_index)
+    # delete inverse relations for child, father, mother relations
+    # from index
+    child_invs = inverse_index.get(40, [])
+    for prop_id in [22, 25]:
+        if prop_id in child_invs:
+            child_invs.remove(prop_id)
 
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
@@ -83,22 +89,38 @@ def prepare(args: argparse.Namespace):
             prop_id = int(prop[1:])
             assert prop_id in property_index
             props = [
-                surround(prop, args.property_begin, args.property_end)
+                (surround(prop, args.property_begin, args.property_end), False)
                 for prop in property_index[prop_id]
             ]
+            for inv_prop_id in inverse_index.get(prop_id, []):
+                props += [
+                    (
+                        surround(prop, args.property_begin, args.property_end),
+                        True
+                    )
+                    for prop in property_index[inv_prop_id]
+                ]
 
             var = surround('x', args.var_begin, args.var_end)
 
             for subj in subjs:
-                for prop in props:
+                for prop, is_inv in props:
                     for obj in objs:
                         of.write(f"{question}\n")
-                        tf.write(
-                            f"SELECT {var} "
-                            f"WHERE {args.bracket_begin} "
-                            f"{subj} {prop} {obj} . "
-                            f"{args.bracket_end}\n"
-                        )
+                        if is_inv:
+                            tf.write(
+                                f"SELECT {var} "
+                                f"WHERE {args.bracket_begin} "
+                                f"{obj} {prop} {subj} . "
+                                f"{args.bracket_end}\n"
+                            )
+                        else:
+                            tf.write(
+                                f"SELECT {var} "
+                                f"WHERE {args.bracket_begin} "
+                                f"{subj} {prop} {obj} . "
+                                f"{args.bracket_end}\n"
+                            )
 
 
 if __name__ == "__main__":

@@ -21,10 +21,11 @@ train:
     loss:
       type: cross_entropy
       ignore_index: -1
+      label_smoothing: env(LABEL_SMOOTHING:0.0)
   optimizer:
     type: adamw
     lr: env(LR:0.00005)
-    weight_decay: 0.01
+    weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
     type: multi_step_with_warmup
     warmup_steps: env(WARMUP_STEPS:0.01)

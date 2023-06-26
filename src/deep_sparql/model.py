@@ -25,6 +25,48 @@ class Model(nn.Module):
         raise NotImplementedError
 
 
+class PretrainedEncoder(Model):
+    def __init__(
+        self,
+        name: str,
+        vocab_size: int,
+    ):
+        super().__init__()
+        assert name in {
+            "t5-small",
+            "t5-base",
+            "t5-large",
+            "t5-3b",
+            "t5-11b",
+        }
+        model = PretrainedEncoderDecoder(
+            name,
+            vocab_size=vocab_size
+        ).model
+        assert isinstance(model, PreTrainedModel)
+        self.model = model.encoder
+
+    def forward(
+        self,
+        token_ids: torch.Tensor,
+        padding_mask: Optional[torch.Tensor] = None,
+        **_: Any
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        assert padding_mask is not None
+        return self.encode(token_ids, padding_mask), {}
+
+    def encode(
+        self,
+        token_ids: torch.Tensor,
+        padding_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        output = self.model(
+            input_ids=token_ids,
+            attention_mask=torch.logical_not(padding_mask).to(torch.float),
+        )  # type: ignore
+        return output.last_hidden_state
+
+
 class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
