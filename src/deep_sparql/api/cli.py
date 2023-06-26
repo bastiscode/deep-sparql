@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from typing import Iterator, Optional, Union
+from typing import Iterator, Optional, Union, Iterable
 
 from text_correction_utils.api.cli import TextCorrectionCli
 from text_correction_utils.api.corrector import TextCorrector
@@ -23,26 +23,28 @@ class SPARQLCli(TextCorrectionCli):
     def version(self) -> str:
         return version.__version__
 
-    def format_output(self, item: data.InferenceData) -> str:
+    def format_output(self, item: data.InferenceData) -> Iterable[str]:
         if self.indices is None:
-            return item.text
+            yield item.text
+            return
         query = prepare_sparql_query(
             item.text,
             *self.indices,
             with_labels=self.args.execute_with_labels,
         )
         if self.args.execute or self.args.execute_with_labels:
+            yield f"Output:\n{item.text}\n"
+            yield f"Query:\n{query}\n"
             try:
                 result = query_qlever(query)
                 formatted = format_qlever_result(result)
                 nl = "\n" if self.args.interactive else ""
-                s = nl + f"Output:\n{item.text}\n\n" \
-                    f"Query:\n{query}\n\n" \
-                    f"Result:\n{formatted}" + nl
-                return s
+                yield f"Result:\n{formatted}" + nl
             except RuntimeError as e:
-                return f"query execution failed: {e}"
-        return query
+                yield f"query execution failed: {e}"
+                return
+        else:
+            yield query
 
     def setup_corrector(self) -> TextCorrector:
         cor = super().setup_corrector()
