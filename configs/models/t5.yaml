@@ -1,2 +1,2 @@
 type: pretrained_encoder_decoder
-name: t5-small
+name: env(T5_MODEL:t5-small)
