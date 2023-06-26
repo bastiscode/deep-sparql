@@ -70,7 +70,8 @@ def _replace(
 
 
 def replace_vars(s: str) -> Tuple[str, List[str]]:
-    return _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
+    s, vars = _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
+    return s, [var.strip() for var in vars]
 
 
 def replace_entities(s: str, index: prefix.Vec, prefix: str = "") -> str:
