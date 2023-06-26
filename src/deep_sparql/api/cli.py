@@ -4,7 +4,6 @@ from typing import Iterator, Optional, Union
 from text_correction_utils.api.cli import TextCorrectionCli
 from text_correction_utils.api.corrector import TextCorrector
 from text_correction_utils import data
-from text_correction_utils import prefix
 
 from deep_sparql import version
 from deep_sparql.api.generator import SPARQLGenerator
