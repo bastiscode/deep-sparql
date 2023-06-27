@@ -272,8 +272,9 @@ class SPARQLGenerator(corrector.TextCorrector):
                     value = None
                 else:
                     decoded = self.output_tokenizer.de_tokenize(
-                        token_ids
-                    )
+                        token_ids,
+                        False
+                    ).strip()
                     decoded = decoded.encode("utf8")
                     conts = index.contains_continuations(decoded)
                     value = index.get(decoded)
