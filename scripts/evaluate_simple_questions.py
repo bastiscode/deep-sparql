@@ -67,11 +67,17 @@ def evaluate(args: argparse.Namespace):
     assert len(inputs) == len(targets) == len(predictions), \
         "expected the same number of inputs, targets and predictions"
 
-    if args.save_invalid and os.path.exists(args.save_invalid):
-        os.remove(args.save_invalid)
+    if args.save_invalid:
+        if os.path.exists(args.save_invalid):
+            os.remove(args.save_invalid)
+        else:
+            os.makedirs(os.path.dirname(args.save_invalid), exist_ok=True)
 
-    if args.save_incorrect and os.path.exists(args.save_incorrect):
-        os.remove(args.save_incorrect)
+    if args.save_incorrect:
+        if os.path.exists(args.save_incorrect):
+            os.remove(args.save_incorrect)
+        else:
+            os.makedirs(os.path.dirname(args.save_incorrect), exist_ok=True)
 
     f1s = []
     invalid = 0
