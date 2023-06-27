@@ -38,7 +38,8 @@ def calc_f1(pred_and_target: Tuple[str, str]) -> Optional[float]:
         return 1.0
     a = get_entities(pred)
     b = get_entities(target)
-    if a is None or b is None:
+    assert b is not None, "target query must be valid"
+    if a is None:
         return None
     if len(a) == 0 and len(b) == 0:
         return 1.0
@@ -69,11 +70,10 @@ def evaluate(args: argparse.Namespace):
                 f1s.append(0.0)
                 continue
             f1s.append(f1)
-            print(
-                f"current F1: {100 * sum(f1s) / len(f1s):.2f}, "
-                f"invalid: {invalid} ({100 * invalid / len(f1s):.2f}%)"
-            )
-    print(f"F1: {100 * sum(f1s) / len(f1s):.2f}")
+    print(
+        f"Macro F1: {100 * sum(f1s) / len(f1s):.2f} "
+        f"({invalid:,} invalid, {100 * invalid / len(f1s):.2f}%)"
+    )
 
 
 if __name__ == "__main__":
