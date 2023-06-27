@@ -36,14 +36,24 @@ def calc_f1(pred_and_target: Tuple[str, str]) -> Optional[float]:
     pred, target = pred_and_target
     if pred == target:
         return 1.0
-    a = get_entities(pred)
-    b = get_entities(target)
-    assert b is not None, "target query must be valid"
-    if a is None:
+    pred_set = get_entities(pred)
+    target_set = get_entities(target)
+    assert target_set is not None, "target query must be valid"
+    if pred_set is None:
         return None
-    if len(a) == 0 and len(b) == 0:
+    if len(pred_set) == 0 and len(target_set) == 0:
         return 1.0
-    return 2 * len(a.intersection(b)) / (len(a) + len(b))
+    tp = len(pred_set.intersection(target_set))
+    fp = len(pred_set.difference(target_set))
+    fn = len(target_set.difference(pred_set))
+    # calculate precision, recall and f1
+    if tp > 0:
+        p = tp / (tp + fp)
+        r = tp / (tp + fn)
+        f1 = 2 * p * r / (p + r)
+    else:
+        f1 = 0.0
+    return f1
 
 
 def evaluate(args: argparse.Namespace):
