@@ -81,7 +81,7 @@ def evaluate(args: argparse.Namespace):
                 continue
             f1s.append(f1)
     print(
-        f"Macro F1: {100 * sum(f1s) / len(f1s):.2f} "
+        f"Query-averaged F1: {100 * sum(f1s) / len(f1s):.2f} "
         f"({invalid:,} invalid, {100 * invalid / len(f1s):.2f}%)"
     )
 
