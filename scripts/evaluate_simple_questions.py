@@ -32,7 +32,8 @@ def get_entities(q: str) -> Optional[Set[str]]:
         vars = list(result[0].keys())
         assert len(vars) == 1, "expected only one variable"
         return set(r[vars[0]]["value"] for r in result)
-    except Exception:
+    except Exception as e:
+        print(e)
         return None
 
 
