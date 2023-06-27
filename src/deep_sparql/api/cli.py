@@ -1,4 +1,4 @@
-import re
+import os
 from io import TextIOWrapper
 from typing import Iterator, Optional, Union, Iterable
 
@@ -56,6 +56,22 @@ class SPARQLCli(TextCorrectionCli):
             beam_width=self.args.beam_width,
             sample_top_k=self.args.sample_top_k
         )
+        index_dir = os.environ.get("SPARQL_PREFIX_INDEX", None)
+        if (
+            self.args.entity_index is None
+            and index_dir is not None
+            and os.path.exists(os.path.join(index_dir, "entities.bin"))
+        ):
+            self.args.entity_index = os.path.join(index_dir, "entities.bin")
+        if (
+            self.args.property_index is None
+            and index_dir is not None
+            and os.path.exists(os.path.join(index_dir, "properties.bin"))
+        ):
+            self.args.property_index = os.path.join(
+                index_dir,
+                "properties.bin"
+            )
         cor.set_indices(
             self.args.entity_index,
             self.args.property_index
