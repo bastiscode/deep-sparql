@@ -66,7 +66,7 @@ def evaluate(args: argparse.Namespace):
     invalid = 0
     with Pool(args.num_processes) as pool:
         for f1 in tqdm(
-            pool.imap(
+            pool.imap_unordered(
                 calc_f1,
                 zip(predictions, targets),
                 chunksize=16
