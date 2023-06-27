@@ -61,7 +61,8 @@ def _replace(
     matches = []
     for match in re.finditer(pattern, s):
         replacement = replacement_fn(match.group(1))
-        matches.append(match.group(1))
+        matches.append(match.group(1).strip())
+        print(f"Replacing '{match.group(1)}' with '{replacement}'")
         start = match.start() + len_diff
         end = match.end() + len_diff
         s = s[:start] + replacement + s[end:]
@@ -70,8 +71,7 @@ def _replace(
 
 
 def replace_vars(s: str) -> Tuple[str, List[str]]:
-    s, vars = _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
-    return s, [var.strip() for var in vars]
+    return _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
 
 
 def replace_entities(s: str, index: prefix.Vec, prefix: str = "") -> str:
