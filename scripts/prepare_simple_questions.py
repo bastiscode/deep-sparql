@@ -7,6 +7,8 @@ from tqdm import tqdm
 from deep_sparql.utils import (
     load_str_index,
     load_id_index,
+    wikidata_prefixes,
+    SPARQL_PREFIX
 )
 
 
@@ -26,9 +28,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--var-begin", type=str, default="<bov>")
     parser.add_argument("--var-end", type=str, default="<eov>")
     parser.add_argument("--target", type=str, required=True)
-    parser.add_argument("--entity-index", type=str, required=True)
-    parser.add_argument("--property-index", type=str, required=True)
-    parser.add_argument("--inverse-index", type=str, required=True)
+    parser.add_argument("--entity-index", type=str, default=None)
+    parser.add_argument("--property-index", type=str, default=None)
+    parser.add_argument("--inverse-index", type=str, default=None)
+    parser.add_argument("--no-indices", action="store_true")
     return parser.parse_args()
 
 
@@ -37,15 +40,23 @@ def surround(s: str, op: str, cl: str) -> str:
 
 
 def prepare(args: argparse.Namespace):
-    entity_index = load_str_index(args.entity_index)
-    property_index = load_str_index(args.property_index)
-    inverse_index = load_id_index(args.inverse_index)
-    # delete inverse relations for child, father, mother relations
-    # from index
-    child_invs = inverse_index.get(40, [])
-    for prop_id in [22, 25]:
-        if prop_id in child_invs:
-            child_invs.remove(prop_id)
+    if not args.no_indices:
+        assert (
+            args.entity_index is not None
+            and args.property_index is not None
+            and args.inverse_index is not None
+        ), "all indices must be provided if --no-indices is not set"
+        entity_index = load_str_index(args.entity_index)
+        property_index = load_str_index(args.property_index)
+        inverse_index = load_id_index(args.inverse_index)
+        # delete inverse relations for child, father, mother relations
+        # from index
+        child_invs = inverse_index.get(40, [])
+        for prop_id in [22, 25]:
+            if prop_id in child_invs:
+                child_invs.remove(prop_id)
+    else:
+        entity_index = property_index = inverse_index = {}
 
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
@@ -66,6 +77,22 @@ def prepare(args: argparse.Namespace):
             else:
                 obj = "x"
                 prop = "P" + prop[1:]
+
+            if args.no_indices:
+                of.write(f"{SPARQL_PREFIX}{question}\n")
+                if subj == "x":
+                    subj = "?" + subj
+                    obj = "wd:" + obj
+                else:
+                    obj = "?" + obj
+                    subj = "wd:" + subj
+                prop = "wdt:" + prop
+                prefix = " ".join(wikidata_prefixes())
+                tf.write(
+                    f"{prefix} SELECT ?x "
+                    f"WHERE {{ {subj} {prop} {obj} . }}\n"
+                )
+                continue
 
             if subj != "x":
                 subj_id = int(subj[1:])

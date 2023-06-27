@@ -22,7 +22,7 @@ from text_correction_utils.inference import (
     beam_search
 )
 
-from deep_sparql.utils import postprocess_output
+from deep_sparql.utils import postprocess_output, prepare_sparql_query
 
 _BASE_URL = "https://ad-publications.informatik.uni-freiburg.de/" \
     "ACL_whitespace_correction_transformer_BHW_2023.materials"
@@ -49,13 +49,19 @@ class DecodingState:
         self._prop_stop_id = prop_stop_id
 
     def is_ent_start(self) -> bool:
-        return self._token_ids[-1] == self._ent_start_id and self._state is None
+        return (
+            self._token_ids[-1] == self._ent_start_id
+            and self._state is None
+        )
 
     def is_ent_stop(self) -> bool:
         return self._token_ids[-1] == self._ent_stop_id and self.is_ent()
 
     def is_prop_start(self) -> bool:
-        return self._token_ids[-1] == self._prop_start_id and self._state is None
+        return (
+            self._token_ids[-1] == self._prop_start_id
+            and self._state is None
+        )
 
     def is_prop_stop(self) -> bool:
         return self._token_ids[-1] == self._prop_stop_id and self.is_prop()
@@ -74,8 +80,10 @@ class DecodingState:
 
     def add(self, token_id: int):
         self._token_ids.append(token_id)
-        if (self.is_ent() and token_id == self._ent_stop_id) \
-                or (self.is_prop() and token_id == self._prop_stop_id):
+        if (
+            (self.is_ent() and token_id == self._ent_stop_id)
+            or (self.is_prop() and token_id == self._prop_stop_id)
+        ):
             self._state = None
         elif self._state is None and token_id == self._ent_start_id:
             self._state = "ent"
@@ -442,7 +450,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             return self._entity_index, self._property_index
         return None
 
-    def correct_text(
+    def generate(
         self,
         inputs: Union[str, List[str]],
         languages: Optional[List[str]] = None,
@@ -450,7 +458,9 @@ class SPARQLGenerator(corrector.TextCorrector):
         batch_max_tokens: Optional[int] = None,
         sort: bool = True,
         num_threads: Optional[int] = None,
-        show_progress: bool = False
+        raw: bool = False,
+        with_labels: bool = False,
+        show_progress: bool = False,
     ) -> Union[str, List[str]]:
         input_is_string = isinstance(inputs, str)
         assert (
@@ -510,18 +520,43 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             )
 
-        return next(iter(outputs)).text if input_is_string \
-            else [output.text for output in outputs]
+        if input_is_string:
+            return self._prepare_sparql_query(
+                next(iter(outputs)).text,
+                raw,
+                with_labels
+            )
+        else:
+            return [
+                self._prepare_sparql_query(output.text, raw, with_labels)
+                for output in outputs
+            ]
 
-    def correct_iter(
+    def _prepare_sparql_query(
+        self,
+        query: str,
+        raw: bool = False,
+        with_labels: bool = False
+    ) -> str:
+        if raw or not self.has_indices:
+            return query
+        return prepare_sparql_query(
+            query,
+            self._entity_index,
+            self._property_index,
+            with_labels
+        )
+
+    def generate_iter(
         self,
         iter: Iterator[Tuple[str, Optional[str]]],
         batch_size: int = 16,
         batch_max_tokens: Optional[int] = None,
         sort: bool = True,
         num_threads: Optional[int] = None,
-        return_raw: bool = False,
-        show_progress: bool = False
+        raw: bool = False,
+        with_labels: bool = False,
+        show_progress: bool = False,
     ) -> Union[Iterator[str], Iterator[data.InferenceData]]:
         loader = self._get_loader(
             (data.InferenceData(s, language=l) for s, l in iter),
@@ -552,12 +587,18 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             )
 
-        if return_raw:
+        if raw:
             yield from output
         else:
-            yield from (data.text for data in output)
+            yield from (
+                self._prepare_sparql_query(
+                    data.text,
+                    with_labels=with_labels
+                )
+                for data in output
+            )
 
-    def correct_file(
+    def generate_file(
             self,
             input_file: str,
             input_file_format: str = "text",
@@ -568,6 +609,8 @@ class SPARQLGenerator(corrector.TextCorrector):
             batch_max_tokens: Optional[int] = None,
             sort: bool = True,
             num_threads: Optional[int] = None,
+            raw: bool = False,
+            with_labels: bool = False,
             show_progress: bool = False
     ) -> Optional[Iterator[str]]:
         assert input_file_format in self.supported_input_formats(), \
@@ -617,13 +660,21 @@ class SPARQLGenerator(corrector.TextCorrector):
                 output_file = open(output_file, "w", encoding="utf8")
 
             for output in outputs:
+                output.text = self._prepare_sparql_query(
+                    output.text,
+                    raw,
+                    with_labels
+                )
                 output_file.write(f"{output.to_str(output_file_format)}\n")
 
             if output_file_is_str:
                 output_file.close()
 
         else:
-            return (output.text for output in outputs)
+            return (
+                self._prepare_sparql_query(output.text, raw, with_labels)
+                for output in outputs
+            )
 
     def set_precision(self, precision: str) -> None:
         training_precision = self.cfg["train"].get(

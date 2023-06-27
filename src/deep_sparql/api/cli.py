@@ -1,3 +1,4 @@
+import re
 from io import TextIOWrapper
 from typing import Iterator, Optional, Union, Iterable
 
@@ -30,7 +31,7 @@ class SPARQLCli(TextCorrectionCli):
         query = prepare_sparql_query(
             item.text,
             *self.indices,
-            with_labels=self.args.execute_with_labels,
+            with_labels=self.args.with_labels or self.args.execute_with_labels,
         )
         if self.args.execute or self.args.execute_with_labels:
             yield f"Output:\n{item.text}\n"
@@ -67,13 +68,13 @@ class SPARQLCli(TextCorrectionCli):
         corrector: SPARQLGenerator,
         iter: Iterator[data.InferenceData]
     ) -> Iterator[data.InferenceData]:
-        yield from corrector.correct_iter(
+        yield from corrector.generate_iter(
             ((SPARQL_PREFIX + data.text, data.language) for data in iter),
             self.args.batch_size,
             self.args.batch_max_tokens,
             not self.args.unsorted,
             self.args.num_threads,
-            return_raw=True,
+            raw=True,
             show_progress=self.args.progress
         )
 
@@ -84,7 +85,10 @@ class SPARQLCli(TextCorrectionCli):
         lang: Optional[str],
         out_file: Union[str, TextIOWrapper]
     ):
-        corrector.correct_file(
+        # disable execution for file input
+        self.args.execute_with_labels = False
+        self.args.execute = False
+        corrector.generate_file(
             path,
             self.args.input_format,
             out_file,
@@ -94,6 +98,7 @@ class SPARQLCli(TextCorrectionCli):
             self.args.batch_max_tokens,
             not self.args.unsorted,
             self.args.num_threads,
+            with_labels=self.args.with_labels,
             show_progress=self.args.progress
         )
 
@@ -135,6 +140,11 @@ def main():
         help="Path to property index file"
     )
     execution = parser.add_mutually_exclusive_group()
+    execution.add_argument(
+        "--with-labels",
+        action="store_true",
+        help="Add labels to the generated query"
+    )
     execution.add_argument(
         "--execute",
         action="store_true",

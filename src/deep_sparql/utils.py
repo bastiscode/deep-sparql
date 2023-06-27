@@ -139,7 +139,20 @@ def postprocess_output(
         r"(<[be]o[vepb]>)",
         lambda p: " " + p.strip() + " "
     )[0]
-    return re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
+    s = re.sub(
+        r"(<bo[vep]>)\s*(.*?)\s*(<eo[vep]>)",
+        r"\1\2\3",
+        s
+    )
+    return s
+
+
+def wikidata_prefixes() -> List[str]:
+    return [
+        f"PREFIX wd: <{WD_ENT_URL}>",
+        f"PREFIX wdt: <{WD_PROP_URL}>",
+    ]
 
 
 def prepare_sparql_query(
@@ -153,12 +166,11 @@ def prepare_sparql_query(
     s = replace_entities(s, entity_index, prefix="wd:")
     s = replace_properties(s, property_index, prefix="wdt:")
     s = replace_brackets(s)
-    prefix = f"PREFIX wdt: <{WD_PROP_URL}>\n" \
-        f"PREFIX wd: <{WD_ENT_URL}>\n"
+    prefix = " ".join(wikidata_prefixes())
     if with_labels:
-        prefix += f"PREFIX rdfs: <{RDFS_URL}>\n"
+        prefix += f" PREFIX rdfs: <{RDFS_URL}>"
         s = _inject_labels(s, vars, lang)
-    query = prefix + s
+    query = prefix + " " + s
     return query
 
 
