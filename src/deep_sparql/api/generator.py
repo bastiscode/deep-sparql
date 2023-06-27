@@ -1,7 +1,8 @@
 from io import TextIOWrapper
 import os
+import time
 import sys
-from typing import Any, Dict, List, Tuple, Optional, Union, Iterator
+from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
 
 import torch
 from torch import nn
@@ -256,53 +257,109 @@ class SPARQLGenerator(corrector.TextCorrector):
         self,
         decoding_states: List[DecodingState]
     ) -> IdxSelectFn:
-        def _fn(
-            log_probs: torch.Tensor,
-            ipt_idx: int
-        ) -> Tuple[int, float]:
-            state = decoding_states[ipt_idx]
-
-            if state.is_obj():
-                index: prefix.Vec = self._entity_index \
-                    if state.is_ent() else self._property_index
-                token_ids = state.get_obj_token_ids()
+        # helper fn to get valid continuations
+        # from a prefix index
+        def _get_indices_and_conts(
+            index: prefix.Vec,
+            decoding_states: List[DecodingState],
+            state_indices: List[int],
+            filter_fn: Callable[[DecodingState], bool],
+            initial_conts: List[bool],
+            end_token_id: int
+        ) -> Tuple[List[int], List[List[bool]]]:
+            indices = []
+            conts = []
+            values = []
+            pfx_indices = []
+            prefixes = []
+            for i, idx in enumerate(state_indices):
+                if not filter_fn(decoding_states[idx]):
+                    continue
+                token_ids = decoding_states[idx].get_obj_token_ids()
                 if len(token_ids) == 0:
-                    conts = self._initial_ent_conts if state.is_ent() \
-                        else self._initial_prop_conts
-                    value = None
-                else:
-                    decoded = self.output_tokenizer.de_tokenize(
-                        token_ids,
-                        False
-                    ).strip()
-                    decoded = decoded.encode("utf8")
-                    conts = index.contains_continuations(decoded)
-                    value = index.get(decoded)
+                    conts.append(initial_conts)
+                    values.append(None)
+                    indices.append(i)
+                    continue
+                decoded = self.output_tokenizer.de_tokenize(
+                    decoding_states[idx].get_obj_token_ids(),
+                    False
+                ).encode("utf8")
+                prefixes.append(decoded)
+                pfx_indices.append(i)
 
-                conts = conts + [False] * (
-                    len(log_probs) - len(self._output_conts)
-                )
-                conts[self._eoe_token_id] = (
-                    value is not None
-                    and state.is_ent()
-                )
-                conts[self._eop_token_id] = (
-                    value is not None
-                    and state.is_prop()
-                )
-                cont_mask = torch.tensor(
-                    conts,
-                    device=log_probs.device,
-                    dtype=torch.bool
-                )
-                log_probs[torch.logical_not(cont_mask)] = float("-inf")
+            pfx_conts = index.batch_contains_continuations(
+                prefixes
+            )
+            pfx_values = index.batch_get(prefixes)
+            for cont, value in zip(pfx_conts, pfx_values):
+                if value is None:
+                    continue
+                cont[end_token_id] = True
 
-            token_id: int = torch.argmax(log_probs).item()  # type: ignore
+            indices.extend(pfx_indices)
+            conts.extend(pfx_conts)
+            return indices, conts
 
-            # update decoding state
-            state.add(token_id)
+        def _fn(
+            scores: torch.Tensor,
+            indices: List[int]
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
+            start = time.perf_counter()
+            conts = torch.ones(
+                *scores.shape,
+                dtype=torch.bool
+            )
+            # print(conts.shape, scores.device, conts.device, indices)
 
-            return token_id, log_probs[token_id].item()
+            # first entities
+            ent_indices, ent_conts = _get_indices_and_conts(
+                self._entity_index,
+                decoding_states,
+                indices,
+                lambda state: state.is_ent(),
+                self._initial_ent_conts,
+                self._eoe_token_id
+            )
+            if len(ent_indices) > 0:
+                ent_indices = torch.tensor(ent_indices, dtype=torch.long)
+                ent_conts = torch.tensor(ent_conts, dtype=torch.bool)
+                # print(
+                #     f"ent_conts: {ent_conts.shape}, "
+                #     f"ent_indices: {ent_indices}"
+                # )
+                conts[ent_indices, :ent_conts.shape[-1]] = ent_conts
+
+            # then properties
+            prop_indices, prop_conts = _get_indices_and_conts(
+                self._property_index,
+                decoding_states,
+                indices,
+                lambda state: state.is_prop(),
+                self._initial_prop_conts,
+                self._eop_token_id
+            )
+            if len(prop_indices) > 0:
+                prop_indices = torch.tensor(prop_indices, dtype=torch.long)
+                prop_conts = torch.tensor(prop_conts, dtype=torch.bool)
+                # print(
+                #     f"prop_conts: {prop_conts.shape}, "
+                #     f"prop_indices: {prop_indices}"
+                # )
+                conts[prop_indices, :prop_conts.shape[-1]] = prop_conts
+
+            scores[torch.logical_not(conts)] = float("-inf")
+            token_ids = torch.argmax(scores, -1)
+            scores = torch.gather(scores, -1, token_ids[:, None]).squeeze(-1)
+
+            # update decoding states
+            for idx, token_id in zip(indices, token_ids.tolist()):
+                decoding_states[idx].add(token_id)
+
+            end = time.perf_counter()
+            # print(f"select took {1000 * (end - start):.2f}ms")
+
+            return token_ids, scores
 
         return _fn
 

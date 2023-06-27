@@ -1,5 +1,5 @@
 experiment:
-  name: env(EXPERIMENT_NAME:t5)
+  name: env(T5_MODEL:t5-small)
 
 seed: 22
 

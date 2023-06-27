@@ -62,7 +62,6 @@ def _replace(
     for match in re.finditer(pattern, s):
         replacement = replacement_fn(match.group(1))
         matches.append(match.group(1).strip())
-        print(f"Replacing '{match.group(1)}' with '{replacement}'")
         start = match.start() + len_diff
         end = match.end() + len_diff
         s = s[:start] + replacement + s[end:]
