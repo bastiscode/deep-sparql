@@ -60,6 +60,15 @@ def calc_f1(pred_and_target: Tuple[str, str]) -> Optional[float]:
     return f1
 
 
+def delete_file_or_create_dir(path: str):
+    if os.path.exists(path):
+        os.remove(path)
+    else:
+        dirname = os.path.dirname(path)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
+
+
 def evaluate(args: argparse.Namespace):
     inputs = load_text_file(args.input)
     targets = load_text_file(args.target)
@@ -68,16 +77,10 @@ def evaluate(args: argparse.Namespace):
         "expected the same number of inputs, targets and predictions"
 
     if args.save_invalid:
-        if os.path.exists(args.save_invalid):
-            os.remove(args.save_invalid)
-        else:
-            os.makedirs(os.path.dirname(args.save_invalid), exist_ok=True)
+        delete_file_or_create_dir(args.save_invalid)
 
     if args.save_incorrect:
-        if os.path.exists(args.save_incorrect):
-            os.remove(args.save_incorrect)
-        else:
-            os.makedirs(os.path.dirname(args.save_incorrect), exist_ok=True)
+        delete_file_or_create_dir(args.save_incorrect)
 
     f1s = []
     invalid = 0
