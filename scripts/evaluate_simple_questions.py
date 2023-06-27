@@ -32,8 +32,7 @@ def get_entities(q: str) -> Optional[Set[str]]:
         vars = list(result[0].keys())
         assert len(vars) == 1, "expected only one variable"
         return set(r[vars[0]]["value"] for r in result)
-    except Exception as e:
-        print(e)
+    except Exception:
         return None
 
 
@@ -96,7 +95,7 @@ def evaluate(args: argparse.Namespace):
             total=len(targets),
             leave=False
         ):
-            if args.save_invalid:
+            if args.save_invalid and f1 is None:
                 with open(args.save_invalid, "a", encoding="utf8") as f:
                     f.write(f"{inputs[i]}\n{predictions[i]}\n{targets[i]}\n\n")
             if args.save_incorrect and f1 is not None and f1 < 1.0:
