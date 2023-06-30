@@ -339,15 +339,12 @@ class SPARQLGenerator(corrector.TextCorrector):
                 state_idx = state_indices[idx]
                 token_ids = decoding_states[state_idx].get_obj_token_ids()
                 overlap = longest_overlap(token_ids, end_token_ids)
-                print(
-                    f"end_token_ids: {end_token_ids}\n"
-                    f"overlap: {overlap}, {value}"
-                )
-                if len(overlap) > 0 and len(overlap) < len(end_token_ids):
-                    cont[end_token_ids[len(overlap)]] = True
-                if value is None:
+                # if len(overlap) > 0 and len(overlap) < len(end_token_ids):
+                #     cont[end_token_ids[len(overlap)]] = True
+                if value is None and len(overlap) == 0:
                     continue
-                cont[end_token_ids[0]] = True
+                assert len(overlap) < len(end_token_ids)
+                cont[end_token_ids[len(overlap)]] = True
 
             indices.extend(pfx_indices)
             conts.extend(pfx_conts)
