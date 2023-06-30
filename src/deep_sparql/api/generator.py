@@ -339,10 +339,15 @@ class SPARQLGenerator(corrector.TextCorrector):
                 state_idx = state_indices[idx]
                 token_ids = decoding_states[state_idx].get_obj_token_ids()
                 overlap = longest_overlap(token_ids, end_token_ids)
-                if value is None and len(overlap) == 0:
+                print(
+                    f"end_token_ids: {end_token_ids}\n"
+                    f"overlap: {overlap}, {value}"
+                )
+                if len(overlap) > 0 and len(overlap) < len(end_token_ids):
+                    cont[end_token_ids[len(overlap)]] = True
+                if value is None:
                     continue
-                assert len(overlap) < len(end_token_ids)
-                cont[end_token_ids[len(overlap)]] = True
+                cont[end_token_ids[0]] = True
 
             indices.extend(pfx_indices)
             conts.extend(pfx_conts)
@@ -637,29 +642,34 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         if input_is_string:
             return self._prepare_sparql_query(
-                next(iter(outputs)).text,
+                next(iter(outputs)),
                 raw,
                 with_labels
             )
         else:
             return [
-                self._prepare_sparql_query(output.text, raw, with_labels)
+                self._prepare_sparql_query(output, raw, with_labels)
                 for output in outputs
             ]
 
     def _prepare_sparql_query(
         self,
-        query: str,
+        item: data.InferenceData,
         raw: bool = False,
         with_labels: bool = False
     ) -> str:
         if raw or not self.has_indices:
-            return query
+            return item.text
         return prepare_sparql_query(
-            query,
+            item.text,
             self._entity_index,
             self._property_index,
-            with_labels
+            with_labels,
+            item.language or "en",
+            var_special_tokens=self._var_special_tokens,
+            entity_special_tokens=self._ent_special_tokens,
+            property_special_tokens=self._prop_special_tokens,
+            bracket_special_tokens=self._bracket_special_tokens,
         )
 
     def generate_iter(
@@ -707,7 +717,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         else:
             yield from (
                 self._prepare_sparql_query(
-                    data.text,
+                    data,
                     with_labels=with_labels
                 )
                 for data in output
@@ -776,7 +786,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
             for output in outputs:
                 output.text = self._prepare_sparql_query(
-                    output.text,
+                    output,
                     raw,
                     with_labels
                 )
@@ -787,7 +797,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         else:
             return (
-                self._prepare_sparql_query(output.text, raw, with_labels)
+                self._prepare_sparql_query(output, raw, with_labels)
                 for output in outputs
             )
 

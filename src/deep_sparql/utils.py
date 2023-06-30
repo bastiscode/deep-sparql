@@ -261,6 +261,9 @@ def special_token_or_token_ids(
     num_pfx = tok.num_prefix_tokens()
     num_sfx = tok.num_suffix_tokens()
     token_ids = tok.tokenize(s).token_ids[num_pfx:-num_sfx]
+    # TODO improve this hack to strip leading space token ids
+    while len(token_ids) and token_ids[0] == 3:
+        token_ids = token_ids[1:]
     return tok.de_tokenize(token_ids, False).strip(), token_ids
 
 
