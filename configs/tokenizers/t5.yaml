@@ -4,12 +4,4 @@ tokenize:
 special:
   tokens: 
     - <pad>
-    - <bob>
-    - <eob>
-    - <bov>
-    - <eov>
-    - <boe>
-    - <eoe>
-    - <bop>
-    - <eop>
   pad: <pad>

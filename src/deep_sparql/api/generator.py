@@ -7,8 +7,6 @@ from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
 import torch
 from torch import nn
 
-from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
-
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
@@ -23,7 +21,13 @@ from text_correction_utils.inference import (
     beam_search
 )
 
-from deep_sparql.utils import postprocess_output, prepare_sparql_query
+from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
+from deep_sparql.utils import (
+    postprocess_output,
+    prepare_sparql_query,
+    special_token_or_token_ids,
+    longest_overlap
+)
 
 _BASE_URL = "https://ad-publications.informatik.uni-freiburg.de/" \
     "ACL_whitespace_correction_transformer_BHW_2023.materials"
@@ -35,37 +39,43 @@ class DecodingState:
     def __init__(
         self,
         initial_token_ids: List[int],
-        ent_start_id: int,
-        ent_stop_id: int,
-        prop_start_id: int,
-        prop_stop_id: int,
+        ent_start_ids: List[int],
+        ent_stop_ids: List[int],
+        prop_start_ids: List[int],
+        prop_stop_ids: List[int],
     ):
         assert len(initial_token_ids) > 0
         self._token_ids = initial_token_ids
         self._state: Optional[str] = None
         self._start_idx = 0
-        self._ent_start_id = ent_start_id
-        self._ent_stop_id = ent_stop_id
-        self._prop_start_id = prop_start_id
-        self._prop_stop_id = prop_stop_id
+        self._ent_start = ent_start_ids
+        self._ent_stop = ent_stop_ids
+        self._prop_start = prop_start_ids
+        self._prop_stop = prop_stop_ids
 
     def is_ent_start(self) -> bool:
         return (
-            self._token_ids[-1] == self._ent_start_id
+            self._token_ids[-len(self._ent_start):] == self._ent_start
             and self._state is None
         )
 
     def is_ent_stop(self) -> bool:
-        return self._token_ids[-1] == self._ent_stop_id and self.is_ent()
+        return (
+            self._token_ids[-len(self._ent_stop)] == self._ent_stop
+            and self.is_ent()
+        )
 
     def is_prop_start(self) -> bool:
         return (
-            self._token_ids[-1] == self._prop_start_id
+            self._token_ids[-len(self._prop_start):] == self._prop_start
             and self._state is None
         )
 
     def is_prop_stop(self) -> bool:
-        return self._token_ids[-1] == self._prop_stop_id and self.is_prop()
+        return (
+            self._token_ids[-len(self._prop_stop)] == self._prop_stop
+            and self.is_prop()
+        )
 
     def is_ent(self) -> bool:
         return self._state == "ent"
@@ -81,15 +91,24 @@ class DecodingState:
 
     def add(self, token_id: int):
         self._token_ids.append(token_id)
-        if (
-            (self.is_ent() and token_id == self._ent_stop_id)
-            or (self.is_prop() and token_id == self._prop_stop_id)
-        ):
+        if ((
+                self.is_ent()
+                and self._token_ids[-len(self._ent_stop):] == self._ent_stop
+            ) or (
+                self.is_prop()
+                and self._token_ids[-len(self._prop_stop):] == self._prop_stop
+        )):
             self._state = None
-        elif self._state is None and token_id == self._ent_start_id:
+        elif (
+            self._state is None
+            and self._token_ids[-len(self._ent_start):] == self._ent_start
+        ):
             self._state = "ent"
             self._start_idx = len(self._token_ids)
-        elif self._state is None and token_id == self._prop_start_id:
+        elif (
+            self._state is None
+            and self._token_ids[-len(self._prop_start):] == self._prop_start
+        ):
             self._state = "prop"
             self._start_idx = len(self._token_ids)
 
@@ -184,18 +203,42 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
             self._eos_token
         )
-        self._boe_token_id = self.output_tokenizer.special_token_to_id(
-            "<boe>"
+        boe_token, self._boe_ids = special_token_or_token_ids(
+            "<boe>",
+            self.output_tokenizer
         )
-        self._eoe_token_id = self.output_tokenizer.special_token_to_id(
-            "<eoe>"
+        eoe_token, self._eoe_ids = special_token_or_token_ids(
+            "<eoe>",
+            self.output_tokenizer
         )
-        self._bop_token_id = self.output_tokenizer.special_token_to_id(
-            "<bop>"
+        bop_token, self._bop_ids = special_token_or_token_ids(
+            "<bop>",
+            self.output_tokenizer
         )
-        self._eop_token_id = self.output_tokenizer.special_token_to_id(
-            "<eop>"
+        eop_token, self._eop_ids = special_token_or_token_ids(
+            "<eop>",
+            self.output_tokenizer
         )
+        bob_token, _ = special_token_or_token_ids(
+            "<bob>",
+            self.output_tokenizer
+        )
+        eob_token, _ = special_token_or_token_ids(
+            "<eob>",
+            self.output_tokenizer
+        )
+        bov_token, _ = special_token_or_token_ids(
+            "<bov>",
+            self.output_tokenizer
+        )
+        eov_token, _ = special_token_or_token_ids(
+            "<eov>",
+            self.output_tokenizer
+        )
+        self._bracket_special_tokens = (bob_token, eob_token)
+        self._var_special_tokens = (bov_token, eov_token)
+        self._ent_special_tokens = (boe_token, eoe_token)
+        self._prop_special_tokens = (bop_token, eop_token)
         self._strategy = "greedy"
         self._beam_width = 5
         self._sample_top_k = 5
@@ -245,10 +288,10 @@ class SPARQLGenerator(corrector.TextCorrector):
         return [
             DecodingState(
                 list(self._initial_token_ids),
-                self._boe_token_id,
-                self._eoe_token_id,
-                self._bop_token_id,
-                self._eop_token_id
+                self._boe_ids,
+                self._eoe_ids,
+                self._bop_ids,
+                self._eop_ids
             )
             for _ in range(batch_size)
         ]
@@ -265,7 +308,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             state_indices: List[int],
             filter_fn: Callable[[DecodingState], bool],
             initial_conts: List[bool],
-            end_token_id: int
+            end_token_ids: List[int]
         ) -> Tuple[List[int], List[List[bool]]]:
             indices = []
             conts = []
@@ -292,10 +335,14 @@ class SPARQLGenerator(corrector.TextCorrector):
                 prefixes
             )
             pfx_values = index.batch_get(prefixes)
-            for cont, value in zip(pfx_conts, pfx_values):
-                if value is None:
+            for cont, value, idx in zip(pfx_conts, pfx_values, pfx_indices):
+                state_idx = state_indices[idx]
+                token_ids = decoding_states[state_idx].get_obj_token_ids()
+                overlap = longest_overlap(token_ids, end_token_ids)
+                if value is None and len(overlap) == 0:
                     continue
-                cont[end_token_id] = True
+                assert len(overlap) < len(end_token_ids)
+                cont[end_token_ids[len(overlap)]] = True
 
             indices.extend(pfx_indices)
             conts.extend(pfx_conts)
@@ -305,7 +352,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             scores: torch.Tensor,
             indices: List[int]
         ) -> Tuple[torch.Tensor, torch.Tensor]:
-            start = time.perf_counter()
+            # start = time.perf_counter()
             conts = torch.ones(
                 *scores.shape,
                 dtype=torch.bool
@@ -319,7 +366,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 indices,
                 lambda state: state.is_ent(),
                 self._initial_ent_conts,
-                self._eoe_token_id
+                self._eoe_ids
             )
             if len(ent_indices) > 0:
                 ent_indices = torch.tensor(ent_indices, dtype=torch.long)
@@ -337,7 +384,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 indices,
                 lambda state: state.is_prop(),
                 self._initial_prop_conts,
-                self._eop_token_id
+                self._eop_ids
             )
             if len(prop_indices) > 0:
                 prop_indices = torch.tensor(prop_indices, dtype=torch.long)
@@ -356,7 +403,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             for idx, token_id in zip(indices, token_ids.tolist()):
                 decoding_states[idx].add(token_id)
 
-            end = time.perf_counter()
+            # end = time.perf_counter()
             # print(f"select took {1000 * (end - start):.2f}ms")
 
             return token_ids, scores
@@ -450,7 +497,16 @@ class SPARQLGenerator(corrector.TextCorrector):
             self.output_tokenizer.de_tokenize(output[num_pfx:-num_sfx], False)
             for output in outputs
         )
-        processed = postprocess_output(merged)
+        processed = postprocess_output(
+            merged,
+            self._bracket_special_tokens,
+            (
+                self._var_special_tokens,
+                self._ent_special_tokens,
+                self._prop_special_tokens
+            )
+        )
+        print(f"output: {merged}\nprocessed: {processed}\n")
         return data.InferenceData(processed, language=items[0].data.language)
 
     def set_inference_options(

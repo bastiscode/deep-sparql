@@ -28,10 +28,16 @@ class SPARQLCli(TextCorrectionCli):
         if self.indices is None:
             yield item.text
             return
+        self.cor: SPARQLGenerator
         query = prepare_sparql_query(
             item.text,
             *self.indices,
             with_labels=self.args.with_labels or self.args.execute_with_labels,
+            lang=item.language or "en",
+            var_special_tokens=self.cor._var_special_tokens,
+            entity_special_tokens=self.cor._ent_special_tokens,
+            property_special_tokens=self.cor._prop_special_tokens,
+            bracket_special_tokens=self.cor._bracket_special_tokens
         )
         if self.args.execute or self.args.execute_with_labels:
             yield f"Output:\n{item.text}\n"

@@ -3,12 +3,8 @@ import requests
 from typing import Dict, List, Callable, Any, Tuple
 
 
-from text_correction_utils import prefix
+from text_correction_utils import prefix, tokenization
 from text_correction_utils.api.table import generate_table
-
-VAR_REGEX = r"<bov>(.+?)<eov>"
-PROP_REGEX = r"<bop>(.+?)<eop>"
-ENT_REGEX = r"<boe>(.+?)<eoe>"
 
 SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
 WHERE_REGEX = r"WHERE\s*{(.*)}"
@@ -69,28 +65,48 @@ def _replace(
     return s, list(set(matches))
 
 
-def replace_vars(s: str) -> Tuple[str, List[str]]:
-    return _replace(s, VAR_REGEX, lambda v: f"?{v.strip()}")
+def replace_vars(
+    s: str,
+    open: str = "<bov>",
+    close: str = "<eov>"
+) -> Tuple[str, List[str]]:
+    return _replace(s, f"{open}(.+?){close}", lambda v: f"?{v.strip()}")
 
 
-def replace_entities(s: str, index: prefix.Vec, prefix: str = "") -> str:
+def replace_entities(
+    s: str,
+    index: prefix.Vec,
+    prefix: str = "",
+    open: str = "<bop>",
+    close: str = "<eop>"
+) -> str:
     return _replace(
         s,
-        ENT_REGEX,
+        f"{open}(.+?){close}",
         lambda e: f"{prefix}Q{index.get(e.strip().encode('utf8'))}"
     )[0]
 
 
-def replace_properties(s: str, index: prefix.Vec, prefix: str = "") -> str:
+def replace_properties(
+    s: str,
+    index: prefix.Vec,
+    prefix: str = "",
+    open: str = "<bop>",
+    close: str = "<eop>"
+) -> str:
     return _replace(
         s,
-        PROP_REGEX,
+        f"{open}(.+?){close}",
         lambda p: f"{prefix}P{index.get(p.strip().encode('utf8'))}"
     )[0]
 
 
-def replace_brackets(s: str) -> str:
-    return s.replace("<bob>", "{").replace("<eob>", "}")
+def replace_brackets(
+    s: str,
+    open: str = "<bob>",
+    close: str = "<eob>"
+) -> str:
+    return s.replace(open, "{").replace(close, "}")
 
 
 def _label_statement(
@@ -131,19 +147,39 @@ def _inject_labels(
 
 
 def postprocess_output(
-    s: str
+    s: str,
+    special_tokens: Tuple[str, ...] = (
+        "<bob>",
+        "<eob>",
+    ),
+    special_token_pairs: Tuple[Tuple[str, str], ...] = (
+        ("<bov>", "<eov>"),
+        ("<bop>", "<eop>"),
+        ("<boe>", "<eoe>"),
+    )
 ) -> str:
+    escaped_special_tokens = []
+    for tok in special_tokens:
+        escaped_special_tokens.append(re.escape(tok))
+    escaped_pairs = []
+    for first, second in special_token_pairs:
+        escaped_pairs.append(re.escape(first))
+        escaped_pairs.append(re.escape(second))
+    tokens = "|".join(set(escaped_special_tokens + escaped_pairs))
     s = _replace(
         s,
-        r"(<[be]o[vepb]>)",
-        lambda p: " " + p.strip() + " "
+        f"({tokens})",
+        lambda p: f" {p.strip()} "
     )[0]
     s = re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
-    s = re.sub(
-        r"(<bo[vep]>)\s*(.*?)\s*(<eo[vep]>)",
-        r"\1\2\3",
-        s
-    )
+    for i in range(0, len(escaped_pairs), 2):
+        first = escaped_pairs[i]
+        second = escaped_pairs[i + 1]
+        s = re.sub(
+            f"({first})\\s*(.*?)\\s*({second})",
+            r"\1\2\3",
+            s
+        )
     return s
 
 
@@ -159,12 +195,16 @@ def prepare_sparql_query(
     entity_index: prefix.Vec,
     property_index: prefix.Vec,
     with_labels: bool = False,
-    lang: str = "en"
+    lang: str = "en",
+    var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
+    entity_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
+    property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
+    bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>")
 ) -> str:
-    s, vars = replace_vars(s)
-    s = replace_entities(s, entity_index, prefix="wd:")
-    s = replace_properties(s, property_index, prefix="wdt:")
-    s = replace_brackets(s)
+    s, vars = replace_vars(s, *var_special_tokens)
+    s = replace_entities(s, entity_index, "wd:", *entity_special_tokens)
+    s = replace_properties(s, property_index, "wdt:", *property_special_tokens)
+    s = replace_brackets(s, *bracket_special_tokens)
     prefix = " ".join(wikidata_prefixes())
     if with_labels:
         prefix += f" PREFIX rdfs: <{RDFS_URL}>"
@@ -209,3 +249,30 @@ def format_qlever_result(
         alignments=["left"] * len(columns),
         max_column_width=max_column_width,
     )
+
+
+def special_token_or_token_ids(
+    s: str,
+    tok: tokenization.Tokenizer
+) -> Tuple[str, List[int]]:
+    token_id = tok.special_token_to_id(s)
+    if token_id is not None:
+        return s, [token_id]
+    num_pfx = tok.num_prefix_tokens()
+    num_sfx = tok.num_suffix_tokens()
+    token_ids = tok.tokenize(s).token_ids[num_pfx:-num_sfx]
+    return tok.de_tokenize(token_ids, False).strip(), token_ids
+
+
+def longest_overlap(
+    list1: List[int],
+    list2: List[int]
+) -> List[int]:
+    min_len = min(len(list1), len(list2))
+    overlap = 0
+
+    for i in range(1, min_len + 1):
+        if list1[-i:] == list2[:i]:
+            overlap = i
+
+    return list1[-overlap:] if overlap else []

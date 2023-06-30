@@ -3,8 +3,8 @@ experiment:
 
 seed: 22
 
-input_tokenizer: file(tokenizers/t5.yaml)
-output_tokenizer: file(tokenizers/t5_output.yaml)
+input_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
+output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
 
 model: file(models/t5.yaml)
 
@@ -48,10 +48,10 @@ train:
     batch_limit_type: env(BATCH_LIMIT_TYPE:padded_item_size)
     pipeline:
       preprocessing: file(preprocessings/sparql_conditional_gen.yaml)
-      tokenizer: file(tokenizers/t5.yaml)
+      tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
       labeling:
         type: conditional_generation
-        tokenizer: file(tokenizers/t5_output.yaml)
+        tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
       postprocessing: file(postprocessings/clip.yaml)
     sources: file(data_sources.yaml)
     val: env(VAL_LIMIT:10000)

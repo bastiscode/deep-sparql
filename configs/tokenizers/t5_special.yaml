@@ -1,0 +1,15 @@
+tokenize:
+  type: huggingface
+  name: t5-small
+special:
+  tokens: 
+    - <pad>
+    - <bob>
+    - <eob>
+    - <bov>
+    - <eov>
+    - <boe>
+    - <eoe>
+    - <bop>
+    - <eop>
+  pad: <pad>
