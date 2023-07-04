@@ -115,7 +115,7 @@ class DecodingState:
 
 
 class SPARQLGenerator(corrector.TextCorrector):
-    task = "spelling correction"
+    task = "SPARQL generation"
 
     @classmethod
     def available_models(cls) -> List[ModelInfo]:
@@ -628,16 +628,26 @@ class SPARQLGenerator(corrector.TextCorrector):
             )
         if self.has_indices:
             self._initial_ent_conts = [
-                len(cont.lstrip()) > 0
-                and (self._entity_index.contains(cont)
-                     or self._entity_index.contains(cont.strip()))
-                for cont in self._output_conts
+                len(cont.lstrip()) > 0 and (a or b)
+                for cont, a, b in zip(
+                    self._output_conts,
+                    self._entity_index.batch_contains(self._output_conts),
+                    self._entity_index.batch_contains([
+                        c.lstrip()
+                        for c in self._output_conts
+                    ])
+                )
             ]
             self._initial_prop_conts = [
-                len(cont.lstrip()) > 0
-                and (self._property_index.contains(cont)
-                     or self._property_index.contains(cont.strip()))
-                for cont in self._output_conts
+                len(cont.lstrip()) > 0 and (a or b)
+                for cont, a, b in zip(
+                    self._output_conts,
+                    self._property_index.batch_contains(self._output_conts),
+                    self._property_index.batch_contains([
+                        c.lstrip()
+                        for c in self._output_conts
+                    ])
+                )
             ]
         else:
             self._initial_ent_conts = [True] * len(self._output_conts)
