@@ -92,7 +92,7 @@ def prepare(args: argparse.Namespace):
 
             # replace variables
             for match in re.finditer(
-                r"select\s+.*(\?(\S+)).*\s+where",
+                r"\s+(\?([\w\d]+))",
                 sparql,
                 flags=re.IGNORECASE
             ):
@@ -149,7 +149,6 @@ def prepare(args: argparse.Namespace):
                 sparqls = []
                 while True:
                     rep_sparql = sparql
-                    print(rep_sparql)
 
                     for ent_match, entities in ents:
                         if len(entities) == 0:
