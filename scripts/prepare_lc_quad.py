@@ -170,7 +170,7 @@ def prepare(args: argparse.Namespace):
             sparqls = replace_ents_and_props(sparql)
             for sparql in sparqls:
                 question = random.choice(questions)
-                inf.write(f"{SPARQL_PREFIX}{question}\n")
+                inf.write(f"{question}\n")
                 tf.write(f"{sparql}\n")
 
         print(
