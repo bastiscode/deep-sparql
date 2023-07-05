@@ -220,7 +220,7 @@ def query_qlever(
     if response.status_code != 200:
         msg = response.json().get("exception", "unknown exception")
         raise RuntimeError(
-            f"query \n{sparql_query}\n failed with "
+            f"query {sparql_query} failed with "
             f"status code {response.status_code}:\n{msg}"
         )
     return response.json()["results"]["bindings"]

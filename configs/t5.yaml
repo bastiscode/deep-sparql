@@ -53,5 +53,5 @@ train:
         type: conditional_generation
         tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
       postprocessing: file(postprocessings/clip.yaml)
-    sources: file(data_sources.yaml)
+    sources: file(env(DATA_SOURCES:data_sources).yaml)
     val: env(VAL_LIMIT:10000)
