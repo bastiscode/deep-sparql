@@ -103,6 +103,10 @@ def prepare(args: argparse.Namespace):
                 )
                 sparql = sparql.replace(match.group(1), var_rep)
 
+            # replace brackets
+            sparql = sparql.replace("{", args.bracket_begin)
+            sparql = sparql.replace("}", args.bracket_end)
+
             # get entities
             try:
                 ents = [
