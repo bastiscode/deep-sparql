@@ -1,3 +1,0 @@
-- type: file_pair
-  input_path: env(WD_SIMPLE:datasets/wikidata-simplequestions/answerable/train_questions.txt)
-  target_path: env(WD_SIMPLE:datasets/wikidata-simplequestions/answerable/train_sparql.txt)
