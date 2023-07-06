@@ -13,8 +13,8 @@ train:
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
-  eval_interval: eval(1 / env(EVAL_PER_EPOCH:10))
-  log_interval: eval(1 / env(LOG_PER_EPOCH:1000))
+  eval_interval: eval(1 / env(EVAL_PER_EPOCH:2))
+  log_interval: eval(1 / env(LOG_PER_EPOCH:20))
   step_interval: eval(1 / env(STEP_PER_EPOCH:1000))
   loss:
     type: sequence
