@@ -5,6 +5,7 @@ import re
 import random
 from typing import List
 
+import numpy as np
 from tqdm import tqdm
 
 from deep_sparql.utils import (
@@ -58,6 +59,8 @@ def prepare(args: argparse.Namespace):
         return re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
 
     num_invalid = 0
+    num_too_long = 0
+    lengths = []
     with open(args.target, "w", encoding="utf8") as tf, \
             open(args.input, "w", encoding="utf8") as inf:
         for sample in tqdm(data, "preparing lc quad", leave=False):
@@ -70,13 +73,25 @@ def prepare(args: argparse.Namespace):
                 continue
             question = clean(question)
 
-            questions = [question]
+            raw_questions = [question]
             if "paraphrased_question" in sample:
                 par = sample["paraphrased_question"]
                 if isinstance(par, list):
-                    questions.extend(clean(p) for p in par)
+                    raw_questions.extend(clean(p) for p in par)
                 else:
-                    questions.append(clean(par))
+                    raw_questions.append(clean(par))
+
+            for q in raw_questions:
+                lengths.append(len(q))
+
+            # filter questions based on length
+            questions = [
+                q for q in raw_questions
+                if len(q) <= 256
+            ]
+            num_too_long += len(raw_questions) - len(questions)
+            if len(questions) == 0:
+                continue
 
             sparql = clean(sample["sparql_wikidata"])
 
@@ -180,6 +195,16 @@ def prepare(args: argparse.Namespace):
         print(
             f"invalid samples: {num_invalid} / {len(data)} "
             f"({num_invalid / len(data):.2%})"
+        )
+        print(
+            f"too long questions (>256 chars): {num_too_long} / {len(data)} "
+            f"({num_too_long / len(data):.2%})"
+        )
+        print(
+            f"length percentiles: 90% = {np.percentile(lengths, 90):.2f}, "
+            f"95% = {np.percentile(lengths, 95):.2f}, "
+            f"99% = {np.percentile(lengths, 99):.2f}, "
+            f"99.9% = {np.percentile(lengths, 99.9):.2f}"
         )
 
 
