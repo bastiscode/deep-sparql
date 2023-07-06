@@ -76,7 +76,7 @@ def prepare(args: argparse.Namespace):
                 for question in questions:
                     inf.write(f"{SPARQL_PREFIX}{question}\n")
                     prefix = " ".join(wikidata_prefixes())
-                    tf.write(f"{prefix} {sparql}")
+                    tf.write(f"{prefix} {sparql}\n")
                     continue
 
             # replace variables

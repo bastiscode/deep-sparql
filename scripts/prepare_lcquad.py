@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--var-end", type=str, default="<eov>")
     parser.add_argument("--entity-index", type=str, default=None)
     parser.add_argument("--property-index", type=str, default=None)
+    parser.add_argument("--val-split", type=float, default=0.01)
     parser.add_argument("--no-indices", action="store_true")
     return parser.parse_args()
 
@@ -99,7 +100,7 @@ def prepare(args: argparse.Namespace):
                 for question in questions:
                     inf.write(f"{SPARQL_PREFIX}{question}\n")
                     prefix = " ".join(wikidata_prefixes())
-                    tf.write(f"{prefix} {sparql}")
+                    tf.write(f"{prefix} {sparql}\n")
                     continue
 
             # replace variables

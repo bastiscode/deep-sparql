@@ -53,5 +53,5 @@ train:
         type: conditional_generation
         tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
       postprocessing: file(postprocessings/clip.yaml)
-    sources: file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
-    val: env(VAL_LIMIT:10000)
+    sources: file(data/lcquad.yaml)
+    val: env(VAL_LIMIT:500)

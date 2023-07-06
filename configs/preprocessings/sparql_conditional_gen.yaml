@@ -1,5 +1,7 @@
 type: chain
 configs:
   - type: clean
+  - type: normalize
+    scheme: NFKC
   - type: prefix
     prefix: pad(Generate SPARQL query >>;0;1; )
