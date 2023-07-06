@@ -1,5 +1,5 @@
 experiment:
-  name: env(T5_MODEL:t5-small)
+  name: env(T5_MODEL:t5-small)-lcquad
 
 seed: 22
 
@@ -53,5 +53,5 @@ train:
         type: conditional_generation
         tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
       postprocessing: file(postprocessings/clip.yaml)
-    sources: file(data/lcquad.yaml)
+    sources: file(data/env(DATA_SOURCES:lcquad).yaml)
     val: env(VAL_LIMIT:500)

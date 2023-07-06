@@ -1,5 +1,5 @@
 experiment:
-  name: env(T5_MODEL:t5-small)
+  name: env(T5_MODEL:t5-small)-wdsimple
 
 seed: 22
 
