@@ -2,7 +2,6 @@ import re
 import requests
 from typing import Dict, List, Callable, Any, Tuple
 
-
 from text_correction_utils import prefix, tokenization
 from text_correction_utils.api.table import generate_table
 

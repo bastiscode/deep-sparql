@@ -13,6 +13,7 @@ from deep_sparql.utils import (
 
 
 from text_correction_utils.io import load_text_file
+from text_correction_utils import edit
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,7 +101,7 @@ def prepare(args: argparse.Namespace):
                     continue
                 subjs = [
                     surround(subj, args.entity_begin, args.entity_end)
-                    for subj in entity_index[subj_id]
+                    for subj in reversed(entity_index[subj_id])
                 ]
                 objs = [surround(obj, args.var_begin, args.var_end)]
             else:
@@ -109,45 +110,52 @@ def prepare(args: argparse.Namespace):
                     continue
                 objs = [
                     surround(obj, args.entity_begin, args.entity_end)
-                    for obj in entity_index[obj_id]
+                    for obj in reversed(entity_index[obj_id])
                 ]
                 subjs = [surround(subj, args.var_begin, args.var_end)]
 
             prop_id = int(prop[1:])
             assert prop_id in property_index
+            properties = property_index[prop_id]
             props = [
-                (surround(prop, args.property_begin, args.property_end), False)
-                for prop in property_index[prop_id]
+                (
+                    surround(prop, args.property_begin, args.property_end),
+                    edit.distance(prop, properties[0]),
+                    False
+                )
+                for prop in properties
             ]
             for inv_prop_id in inverse_index.get(prop_id, []):
+                properties = property_index[inv_prop_id]
                 props += [
                     (
                         surround(prop, args.property_begin, args.property_end),
+                        edit.distance(prop, properties[0]),
                         True
                     )
-                    for prop in property_index[inv_prop_id]
+                    for prop in properties
                 ]
+            props.sort(
+                key=lambda item: (-item[1], not item[2])  # type: ignore
+            )
 
             var = surround('x', args.var_begin, args.var_end)
 
-            for subj in subjs:
-                for prop, is_inv in props:
-                    for obj in objs:
-                        of.write(f"{question}\n")
-                        if is_inv:
-                            tf.write(
-                                f"SELECT {var} "
-                                f"WHERE {args.bracket_begin} "
-                                f"{obj} {prop} {subj} . "
-                                f"{args.bracket_end}\n"
-                            )
-                        else:
-                            tf.write(
-                                f"SELECT {var} "
-                                f"WHERE {args.bracket_begin} "
-                                f"{subj} {prop} {obj} . "
-                                f"{args.bracket_end}\n"
-                            )
+            while True:
+                if len(subjs) == 0 or len(props) == 0 or len(objs) == 0:
+                    break
+                subj = subjs.pop()
+                prop, _, is_inv = props.pop()
+                obj = objs.pop()
+                if is_inv:
+                    subj, obj = obj, subj
+                tf.write(
+                    f"SELECT {var} "
+                    f"WHERE {args.bracket_begin} "
+                    f"{subj} {prop} {obj} . "
+                    f"{args.bracket_end}\n"
+                )
+                of.write(f"{question}\n")
 
 
 if __name__ == "__main__":

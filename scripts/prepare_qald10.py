@@ -101,8 +101,11 @@ def prepare(args: argparse.Namespace):
                 ents = [
                     (
                         match.group(),
-                        [surround(e, args.entity_begin, args.entity_end)
-                         for e in entity_index[int(match.group(1))]]
+                        [
+                            surround(e, args.entity_begin, args.entity_end)
+                            for e
+                            in reversed(entity_index[int(match.group(1))])
+                        ]
                     )
                     for match in chain(re.finditer(
                         f"<{WD_ENT_URL}Q(\\d+)>",
@@ -121,8 +124,11 @@ def prepare(args: argparse.Namespace):
                 props = [
                     (
                         match.group(),
-                        [surround(p, args.property_begin, args.property_end)
-                         for p in property_index[int(match.group(1))]]
+                        [
+                            surround(p, args.property_begin, args.property_end)
+                            for p
+                            in reversed(property_index[int(match.group(1))])
+                        ]
                     )
                     for match in chain(re.finditer(
                         f"<{WD_PROP_URL}P(\\d+)>",
@@ -148,14 +154,12 @@ def prepare(args: argparse.Namespace):
                     for ent_match, entities in ents:
                         if len(entities) == 0:
                             return sparqls
-                        random.shuffle(entities)
                         ent = entities.pop()
                         rep_sparql = rep_sparql.replace(ent_match, ent, 1)
 
                     for prop_match, properties in props:
                         if len(properties) == 0:
                             return sparqls
-                        random.shuffle(properties)
                         prop = properties.pop()
                         rep_sparql = rep_sparql.replace(prop_match, prop, 1)
 

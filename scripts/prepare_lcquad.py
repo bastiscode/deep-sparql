@@ -74,10 +74,7 @@ def prepare(args: argparse.Namespace):
             if "paraphrased_question" in sample:
                 par = sample["paraphrased_question"]
                 if isinstance(par, list):
-                    questions.extend(
-                        clean(p)
-                        for p in par
-                    )
+                    questions.extend(clean(p) for p in par)
                 else:
                     questions.append(clean(par))
 
@@ -112,8 +109,11 @@ def prepare(args: argparse.Namespace):
                 ents = [
                     (
                         match.group(),
-                        [surround(e, args.entity_begin, args.entity_end)
-                         for e in entity_index[int(match.group(1))]]
+                        [
+                            surround(e, args.entity_begin, args.entity_end)
+                            for e in
+                            reversed(entity_index[int(match.group(1))])
+                        ]
                     )
                     for match in re.finditer(
                         r"wd:Q(\d+)",
@@ -131,8 +131,11 @@ def prepare(args: argparse.Namespace):
                 props = [
                     (
                         match.group(),
-                        [surround(p, args.property_begin, args.property_end)
-                         for p in property_index[int(match.group(1))]]
+                        [
+                            surround(p, args.property_begin, args.property_end)
+                            for p in
+                            reversed(property_index[int(match.group(1))])
+                        ]
                     )
                     for match in re.finditer(
                         r"(?:wdt|p|pq|ps):P(\d+)",
@@ -157,14 +160,12 @@ def prepare(args: argparse.Namespace):
                     for ent_match, entities in ents:
                         if len(entities) == 0:
                             return sparqls
-                        random.shuffle(entities)
                         ent = entities.pop()
                         rep_sparql = rep_sparql.replace(ent_match, ent, 1)
 
                     for prop_match, properties in props:
                         if len(properties) == 0:
                             return sparqls
-                        random.shuffle(properties)
                         prop = properties.pop()
                         rep_sparql = rep_sparql.replace(prop_match, prop, 1)
 
