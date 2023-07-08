@@ -39,6 +39,7 @@ class PretrainedEncoder(Model):
             "t5-3b",
             "t5-11b",
         }
+        self.name = name
         model = PretrainedEncoderDecoder(
             name,
             vocab_size=vocab_size

@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 
 from tqdm import tqdm
 
@@ -10,6 +11,7 @@ from deep_sparql.utils import (
     wikidata_prefixes,
     SPARQL_PREFIX
 )
+from deep_sparql.vector import Index, sample_nearest_neighbors
 
 
 from text_correction_utils.io import load_text_file
@@ -32,6 +34,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--entity-index", type=str, default=None)
     parser.add_argument("--property-index", type=str, default=None)
     parser.add_argument("--inverse-index", type=str, default=None)
+    parser.add_argument("--example-index", type=str, default=None)
+    parser.add_argument("--max-num-examples", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--no-indices", action="store_true")
     return parser.parse_args()
 
@@ -59,17 +64,34 @@ def prepare(args: argparse.Namespace):
     else:
         entity_index = property_index = inverse_index = {}
 
+    if args.example_index is not None:
+        example_index = Index.load(args.example_index)
+    else:
+        example_index = None
+
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
 
     lines = load_text_file(args.data)
+
+    if example_index is not None:
+        questions = [line.split("\t")[-1].strip() for line in lines]
+        example_strs = sample_nearest_neighbors(
+            questions,
+            example_index,
+            args.max_num_examples,
+            args.batch_size
+        )
+    else:
+        example_strs = [""] * len(lines)
+
     with open(args.input, "w") as of, \
             open(args.target, "w") as tf:
-        for line in tqdm(
+        for i, line in enumerate(tqdm(
             lines,
             desc="preparing simple questions",
             leave=False
-        ):
+        )):
             subj, prop, obj, question = line.split("\t")
             if prop.startswith("R"):
                 subj, obj = obj, subj
@@ -155,7 +177,9 @@ def prepare(args: argparse.Namespace):
                     f"{subj} {prop} {obj} . "
                     f"{args.bracket_end}\n"
                 )
-                of.write(f"{question}\n")
+                if example_strs[i]:
+                    of.write(f"{example_strs[i]} ")
+                of.write(f"{SPARQL_PREFIX}{question}\n")
 
 
 if __name__ == "__main__":

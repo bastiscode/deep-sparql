@@ -13,7 +13,7 @@ WD_PROP_URL = "http://www.wikidata.org/prop/direct/"
 RDFS_URL = "http://www.w3.org/2000/01/rdf-schema#"
 WD_QLEVER_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
 
-SPARQL_PREFIX = "Generate SPARQL query >> "
+SPARQL_PREFIX = "Generate SPARQL >> "
 
 
 def load_str_index(path: str) -> Dict[int, List[str]]:
@@ -280,3 +280,33 @@ def longest_overlap(
             overlap = i
 
     return list1[-overlap:] if overlap else []
+
+
+def format_example(
+    question: str,
+    sparql: str,
+) -> str:
+    return f"<box><boq>{question}<eoq>" \
+        f"<bos>{sparql}<eos><eox>"
+
+
+def format_examples(
+    examples: List[Tuple[str, str]]
+) -> str:
+    return " ".join(
+        format_example(q, s)
+        for q, s in examples
+    )
+
+
+def format_input(
+    question: str,
+    examples: List[Tuple[str, str]],
+    decoder_only: bool = False
+) -> str:
+    s = f"{SPARQL_PREFIX}{question}"
+    if decoder_only:
+        s += " >> "
+    if len(examples) == 0:
+        return s
+    return format_examples(examples) + " " + s
