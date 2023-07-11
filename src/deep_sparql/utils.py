@@ -290,18 +290,9 @@ def format_example(
         f"<bos>{sparql}<eos><eox>"
 
 
-def format_examples(
-    examples: List[Tuple[str, str]]
-) -> str:
-    return " ".join(
-        format_example(q, s)
-        for q, s in examples
-    )
-
-
 def format_input(
     question: str,
-    examples: List[Tuple[str, str]],
+    examples: List[str],
     decoder_only: bool = False
 ) -> str:
     s = f"{SPARQL_PREFIX}{question}"
@@ -309,4 +300,4 @@ def format_input(
         s += " >> "
     if len(examples) == 0:
         return s
-    return format_examples(examples) + " " + s
+    return " ".join(examples) + " " + s

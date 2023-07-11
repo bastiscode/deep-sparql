@@ -1,6 +1,5 @@
 import argparse
 import os
-import random
 
 from tqdm import tqdm
 
@@ -102,7 +101,7 @@ def prepare(args: argparse.Namespace):
                 prop = "P" + prop[1:]
 
             if args.no_indices:
-                of.write(f"{SPARQL_PREFIX}{question}\n")
+                of.write(f"{question}\n")
                 if subj == "x":
                     subj = "?" + subj
                     obj = "wd:" + obj

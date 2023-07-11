@@ -11,8 +11,10 @@ from tqdm import tqdm
 from deep_sparql.utils import (
     load_str_index,
     wikidata_prefixes,
+    format_input,
     SPARQL_PREFIX
 )
+from deep_sparql.vector import Index, sample_nearest_neighbors
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,7 +32,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--var-end", type=str, default="<eov>")
     parser.add_argument("--entity-index", type=str, default=None)
     parser.add_argument("--property-index", type=str, default=None)
-    parser.add_argument("--val-split", type=float, default=0.01)
+    parser.add_argument("--example-index", type=str, default=None)
+    parser.add_argument("--max-num-examples", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--no-indices", action="store_true")
     return parser.parse_args()
 
@@ -49,6 +53,11 @@ def prepare(args: argparse.Namespace):
         property_index = load_str_index(args.property_index)
     else:
         entity_index = property_index = {}
+
+    if args.example_index is not None:
+        example_index = Index.load(args.example_index)
+    else:
+        example_index = None
 
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
@@ -98,7 +107,7 @@ def prepare(args: argparse.Namespace):
 
             if args.no_indices:
                 for question in questions:
-                    inf.write(f"{SPARQL_PREFIX}{question}\n")
+                    inf.write(f"{question}\n")
                     prefix = " ".join(wikidata_prefixes())
                     tf.write(f"{prefix} {sparql}\n")
                     continue
@@ -187,10 +196,23 @@ def prepare(args: argparse.Namespace):
 
                     sparqls.append(rep_sparql)
 
+            if example_index is not None:
+                example_strs = sample_nearest_neighbors(
+                    questions,
+                    example_index,
+                    args.max_num_examples,
+                    args.batch_size
+                )
+            else:
+                example_strs = [""] * len(questions)
+
             sparqls = replace_ents_and_props(sparql)
             for sparql in sparqls:
-                question = random.choice(questions)
-                inf.write(f"{question}\n")
+                idx = random.randint(0, len(questions) - 1)
+                question = questions[idx]
+                if example_strs[idx]:
+                    inf.write(f"{example_strs[idx]} ")
+                inf.write(f"{SPARQL_PREFIX}{question}\n")
                 tf.write(f"{sparql}\n")
 
         print(

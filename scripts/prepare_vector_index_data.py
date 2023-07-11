@@ -35,10 +35,14 @@ def prepare(args: argparse.Namespace):
     dir = os.path.dirname(args.output)
     if dir:
         os.makedirs(dir, exist_ok=True)
+    seen = set()
     with open(args.output, "w") as of:
         for input, target in zip(inputs, targets):
+            if input in seen:
+                continue
             example = format_example(input, target)
             of.write(f"{input}\t{example}\n")
+            seen.add(input)
 
 
 if __name__ == "__main__":

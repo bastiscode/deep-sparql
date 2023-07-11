@@ -193,7 +193,7 @@ def sample_nearest_neighbors(
     max_neighbors: int,
     batch_size: int = 16,
     progress: bool = True,
-) -> List[List[str]]:
+) -> List[str]:
     nn_strs = []
     for i in tqdm(
         range(0, len(questions), batch_size),
