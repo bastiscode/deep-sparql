@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Dict, Any
 
 from flask import Response, jsonify, request, abort
@@ -14,7 +15,11 @@ class SPARQLServer(TextCorrectionServer):
     text_corrector_cls = SPARQLGenerator
 
     def __init__(self, config: Dict[str, Any]):
+        assert "feedback_file" in config, "missing feedback_file in config"
         super().__init__(config)
+        feedback_dir = os.path.dirname(config["feedback_file"])
+        if feedback_dir:
+            os.makedirs(feedback_dir, exist_ok=True)
 
         for cfg in config["models"]:
             if "entity_index" not in cfg or "property_index" not in cfg:
@@ -34,6 +39,27 @@ class SPARQLServer(TextCorrectionServer):
                 f"loaded indices from {cfg['entity_index']} "
                 f"and {cfg['property_index']} for {cor_name}"
             )
+
+        @self.server.route(f"{self.base_url}/feedback", methods=["POST"])
+        def _feedback() -> Response:
+            json = request.get_json()
+            if json is None:
+                return abort(Response("request body must be json", status=400))
+            elif "question" not in json:
+                return abort(Response("missing question in json", status=400))
+            elif "sparql" not in json:
+                return abort(Response("missing sparql in json", status=400))
+            elif "feedback" not in json:
+                return abort(Response("missing feedback in json", status=400))
+
+            feedback = json["feedback"]
+            if feedback not in ["helpful", "unhelpful"]:
+                return abort(Response("invalid feedback", status=400))
+
+            with open(self.config["feedback_file"], "a", encoding="utf8") as f:
+                f.write(f"{json}\n")
+
+            return Response(status=200)
 
         @self.server.route(f"{self.base_url}/answer", methods=["POST"])
         def _answer() -> Response:

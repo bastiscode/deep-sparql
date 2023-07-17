@@ -2,6 +2,7 @@ port: 40000
 timeout: 10
 # precision: fp16
 # allow_origin: test.mydomain.com 
+feedback_file: env(FEEDBACK_FILE:feedback.jsonl)
 base_url: env(BASE_URL:/api)
 models:
   # load a pretrained model by specifying the name
