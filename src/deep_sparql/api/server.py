@@ -71,7 +71,6 @@ class SPARQLServer(TextCorrectionServer):
             elif "questions" not in json:
                 return abort(Response("missing questions in json", status=400))
 
-            with_labels = json.get("labels", True)
             search_strategy = json.get("search_strategy", "greedy")
             beam_width = json.get("beam_width", 5)
 
@@ -104,8 +103,6 @@ class SPARQLServer(TextCorrectionServer):
                         query = prepare_sparql_query(
                             item.text,
                             *cor.get_indices(),
-                            with_labels=with_labels,
-                            lang=item.language or "en",
                             var_special_tokens=cor._var_special_tokens,
                             entity_special_tokens=cor._ent_special_tokens,
                             property_special_tokens=cor._prop_special_tokens,

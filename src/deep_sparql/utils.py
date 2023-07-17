@@ -1,4 +1,5 @@
 import re
+import collections
 import requests
 from typing import Dict, List, Callable, Any, Tuple
 
@@ -13,7 +14,7 @@ WD_PROP_URL = "http://www.wikidata.org/prop/direct/"
 RDFS_URL = "http://www.w3.org/2000/01/rdf-schema#"
 WD_QLEVER_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
 
-SPARQL_PREFIX = "Generate SPARQL >> "
+SPARQL_PREFIX = "Generate SPARQL"
 
 
 def load_str_index(path: str) -> Dict[int, List[str]]:
@@ -118,29 +119,50 @@ def _label_statement(
 
 def _inject_labels(
     s: str,
-    vars: List[str],
     lang: str = "en"
 ) -> str:
     org_s = s
+    # get selected vars
+    var_match = next(re.finditer(
+        r"select\s+.*(\?[\w\d]+)+\s+where",
+        s,
+        flags=re.IGNORECASE | re.DOTALL
+    ), None)
+    if var_match is None:
+        return s
+    vars = list(var_match.group(1).split())
+    if "*" in vars or any(
+        re.fullmatch(
+            r"\?\S+",
+            v,
+            flags=re.IGNORECASE | re.DOTALL
+        ) is None for v in vars
+    ):
+        return s
+
     # first inject OPTIONAL statements into WHERE clause
     # to get the labels
-    where_matches = list(re.finditer(
+    where_match = next(re.finditer(
         WHERE_REGEX,
         s,
-        flags=re.DOTALL
-    ))
-    if len(where_matches) != 1:
+        flags=re.IGNORECASE | re.DOTALL
+    ), None)
+    if where_match is None:
         return s
-    end = where_matches[0].end(1)
-    label_s = " ".join(_label_statement(var, lang) for var in vars)
+    end = where_match.end(1)
+    label_s = " ".join(_label_statement(var[1:], lang) for var in vars)
     s = s[:end].rstrip() + f" {label_s} " + s[end:].lstrip()
 
-    # then add label varaibles to the SELECT clause
-    select_matches = list(re.finditer(SELECT_REGEX, s))
-    if len(select_matches) != 1:
+    # then add label variables to the SELECT clause
+    select_match = next(re.finditer(
+        SELECT_REGEX,
+        s,
+        flags=re.IGNORECASE | re.DOTALL
+    ), None)
+    if select_match is None:
         return org_s
-    end = select_matches[0].end(1)
-    label_s = " ".join(f"?{var}Label" for var in vars)
+    end = select_match.end(1)
+    label_s = " ".join(f"?{var[1:]}Label" for var in vars)
     s = s[:end].rstrip() + f" {label_s} " + s[end:].lstrip()
     return s
 
@@ -193,28 +215,25 @@ def prepare_sparql_query(
     s: str,
     entity_index: prefix.Vec,
     property_index: prefix.Vec,
-    with_labels: bool = False,
-    lang: str = "en",
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
     entity_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
     bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>")
 ) -> str:
-    s, vars = replace_vars(s, *var_special_tokens)
+    s, _ = replace_vars(s, *var_special_tokens)
     s = replace_entities(s, entity_index, "wd:", *entity_special_tokens)
     s = replace_properties(s, property_index, "wdt:", *property_special_tokens)
     s = replace_brackets(s, *bracket_special_tokens)
     prefix = " ".join(wikidata_prefixes())
-    if with_labels:
-        prefix += f" PREFIX rdfs: <{RDFS_URL}>"
-        s = _inject_labels(s, vars, lang)
-    query = prefix + " " + s
-    return query
+    return f"{prefix} {s}"
+
+
+QLEVER_RESULT = List[Dict[str, Any]]
 
 
 def query_qlever(
     sparql_query: str,
-) -> List[Dict[str, Any]]:
+) -> QLEVER_RESULT:
     response = requests.get(WD_QLEVER_URL, params={"query": sparql_query})
     if response.status_code != 200:
         msg = response.json().get("exception", "unknown exception")
@@ -223,6 +242,38 @@ def query_qlever(
             f"status code {response.status_code}:\n{msg}"
         )
     return response.json()["results"]["bindings"]
+
+
+def generate_label_queries(
+    qlever_result: QLEVER_RESULT,
+    lang: str = "en",
+) -> Dict[str, str]:
+    if len(qlever_result) == 0:
+        return {}
+    values = collections.defaultdict(list)
+    vars = set(
+        k
+        for k, v in qlever_result[0].items()
+        if v["type"] == "uri"
+        and len(re.findall(f"^{WD_ENT_URL}Q\\d+$", v["value"])) > 0
+    )
+    for result in qlever_result:
+        for var in vars:
+            values[var].append(result[var]["value"])
+    # convert values to label queries
+    queries = {}
+    for var, val in values.items():
+        val_str = " ".join(f"wd:{v.split('/')[-1]}" for v in val)
+        query = f"PREFIX wd: <{WD_ENT_URL}> " \
+            f"PREFIX rdfs: <{RDFS_URL}> " \
+            f"SELECT ?{var}Label " \
+            "WHERE { " \
+            f"VALUES ?{var} {{ {val_str} }} " \
+            f"OPTIONAL {{ ?{var} rdfs:label ?{var}Label " \
+            f"FILTER(LANG(?{var}Label) = \"{lang}\") " \
+            "} }"
+        queries[var] = query
+    return queries
 
 
 def format_qlever_result(
@@ -295,9 +346,12 @@ def format_input(
     examples: List[str],
     decoder_only: bool = False
 ) -> str:
-    s = f"{SPARQL_PREFIX}{question}"
-    if decoder_only:
-        s += " >> "
     if len(examples) == 0:
-        return s
-    return " ".join(examples) + " " + s
+        return f"{SPARQL_PREFIX} >> {question}" + " >> " * decoder_only
+    return (
+        SPARQL_PREFIX
+        + " >> "
+        + " ".join(examples)
+        + f" {question}"
+        + " >> " * decoder_only
+    )

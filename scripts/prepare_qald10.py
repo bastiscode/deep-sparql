@@ -96,6 +96,21 @@ def prepare(args: argparse.Namespace):
             sparql = sparql.replace("{", args.bracket_begin)
             sparql = sparql.replace("}", args.bracket_end)
 
+            # remove prefixes
+            match = next(
+                re.finditer(
+                    r"\s*(select)\s+",
+                    sparql,
+                    flags=re.IGNORECASE
+                ),
+                None
+            )
+            if match is None:
+                num_invalid += 1
+                continue
+
+            sparql = sparql[match.start(1):]
+
             # get entities
             try:
                 ents = [

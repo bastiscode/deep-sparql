@@ -11,7 +11,6 @@ from tqdm import tqdm
 from deep_sparql.utils import (
     load_str_index,
     wikidata_prefixes,
-    format_input,
     SPARQL_PREFIX
 )
 from deep_sparql.vector import Index, sample_nearest_neighbors
@@ -75,7 +74,13 @@ def prepare(args: argparse.Namespace):
             open(args.input, "w", encoding="utf8") as inf:
         for sample in tqdm(data, "preparing lc quad", leave=False):
             if "sparql_wikidata" not in sample:
+                num_invalid += 1
                 continue
+
+            sparql = clean(sample["sparql_wikidata"])
+            # if "wikibase:" in sparql:
+            #     num_invalid += 1
+            #     continue
 
             question = sample["question"]
             if question is None:
@@ -102,8 +107,6 @@ def prepare(args: argparse.Namespace):
             num_too_long += len(raw_questions) - len(questions)
             if len(questions) == 0:
                 continue
-
-            sparql = clean(sample["sparql_wikidata"])
 
             if args.no_indices:
                 for question in questions:
