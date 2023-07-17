@@ -251,12 +251,14 @@ def generate_label_queries(
     if len(qlever_result) == 0:
         return {}
     values = collections.defaultdict(list)
+    # get entity vars
     vars = set(
         k
         for k, v in qlever_result[0].items()
         if v["type"] == "uri"
         and len(re.findall(f"^{WD_ENT_URL}Q\\d+$", v["value"])) > 0
     )
+    # collect values for each variable referring to entities
     for result in qlever_result:
         for var in vars:
             values[var].append(result[var]["value"])

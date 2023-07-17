@@ -13,7 +13,8 @@ from deep_sparql.utils import (
     SPARQL_PREFIX,
     prepare_sparql_query,
     query_qlever,
-    format_qlever_result
+    format_qlever_result,
+    generate_label_queries
 )
 
 
@@ -32,26 +33,41 @@ class SPARQLCli(TextCorrectionCli):
         query = prepare_sparql_query(
             item.text,
             *self.indices,
-            with_labels=self.args.with_labels or self.args.execute_with_labels,
-            lang=item.language or "en",
             var_special_tokens=self.cor._var_special_tokens,
             entity_special_tokens=self.cor._ent_special_tokens,
             property_special_tokens=self.cor._prop_special_tokens,
             bracket_special_tokens=self.cor._bracket_special_tokens
         )
-        if self.args.execute or self.args.execute_with_labels:
-            yield f"Output:\n{item.text}\n"
-            yield f"Query:\n{query}\n"
-            try:
-                result = query_qlever(query)
-                formatted = format_qlever_result(result)
-                nl = "\n" if self.args.interactive else ""
-                yield f"Result:\n{formatted}" + nl
-            except RuntimeError as e:
-                yield f"query execution failed: {e}"
-                return
-        else:
+        if not self.args.execute and not self.args.execute_with_labels:
             yield query
+            return
+
+        yield f"Output:\n{item.text}\n"
+        yield f"Query:\n{query}\n"
+        try:
+            result = query_qlever(query)
+            if self.args.execute_with_labels:
+                lang = item.language or "en"
+                label_queries = generate_label_queries(
+                    result,
+                    lang
+                )
+                label_results = {
+                    var: query_qlever(q)
+                    for var, q in label_queries.items()
+                }
+                assert all(
+                    len(val) == len(result)
+                    for val in label_results.values()
+                )
+                for var, val in label_results.items():
+                    for i, v in enumerate(val):
+                        result[i][var] = v
+            formatted = format_qlever_result(result)
+            nl = "\n" if self.args.interactive else ""
+            yield f"Result:\n{formatted}" + nl
+        except RuntimeError as e:
+            yield f"query execution failed: {e}"
 
     def setup_corrector(self) -> TextCorrector:
         cor = super().setup_corrector()
@@ -162,11 +178,6 @@ def main():
         help="Path to property index file"
     )
     execution = parser.add_mutually_exclusive_group()
-    execution.add_argument(
-        "--with-labels",
-        action="store_true",
-        help="Add labels to the generated query"
-    )
     execution.add_argument(
         "--execute",
         action="store_true",
