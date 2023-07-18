@@ -62,7 +62,9 @@ class SPARQLCli(TextCorrectionCli):
                 )
                 for var, val in label_results.items():
                     for i, v in enumerate(val):
-                        result[i][var] = v
+                        if v is None:
+                            continue
+                        result[i][var] = v[var]
             formatted = format_qlever_result(result)
             nl = "\n" if self.args.interactive else ""
             yield f"Result:\n{formatted}" + nl

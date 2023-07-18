@@ -274,7 +274,7 @@ def generate_label_queries(
             f"OPTIONAL {{ ?{var} rdfs:label ?{var}Label " \
             f"FILTER(LANG(?{var}Label) = \"{lang}\") " \
             "} }"
-        queries[var] = query
+        queries[f"{var}Label"] = query
     return queries
 
 
@@ -289,15 +289,19 @@ def format_qlever_result(
     if len(columns) == 0:
         return "no bindings"
 
+    data = []
+    for obj in result:
+        if obj is None:
+            data.append(["-"] * len(columns))
+            continue
+        data.append([
+            obj[col]["value"] if col in obj else "-"
+            for col in columns
+        ])
+
     return generate_table(
         headers=[columns],
-        data=[
-            [
-                obj[col]["value"] if col in obj else "-"
-                for col in columns
-            ]
-            for obj in result
-        ],
+        data=data,
         alignments=["left"] * len(columns),
         max_column_width=max_column_width,
     )
