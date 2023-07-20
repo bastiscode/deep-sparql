@@ -57,9 +57,9 @@ def load_inverse_index(path: str) -> Dict[str, List[str]]:
         index = {}
         for line in f:
             split = line.strip().split("\t")
-            assert len(split) == 3
-            obj_id_1 = int(split[0])
-            obj_id_2 = int(split[1])
+            assert len(split) == 2
+            obj_id_1 = split[0].strip()
+            obj_id_2 = split[1].strip()
             if obj_id_1 not in index:
                 index[obj_id_1] = [obj_id_2]
             else:
