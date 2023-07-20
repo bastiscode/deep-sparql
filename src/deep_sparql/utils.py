@@ -129,64 +129,6 @@ def replace_brackets(
     return s.replace(open, "{").replace(close, "}")
 
 
-def _label_statement(
-    var: str,
-    lang: str = "en"
-) -> str:
-    return f"OPTIONAL {{ ?{var} rdfs:label ?{var}Label . " \
-        f"FILTER(LANG(?{var}Label) = \"{lang}\") . }}"
-
-
-def _inject_labels(
-    s: str,
-    lang: str = "en"
-) -> str:
-    org_s = s
-    # get selected vars
-    var_match = next(re.finditer(
-        r"select\s+.*(\?[\w\d]+)+\s+where",
-        s,
-        flags=re.IGNORECASE | re.DOTALL
-    ), None)
-    if var_match is None:
-        return s
-    vars = list(var_match.group(1).split())
-    if "*" in vars or any(
-        re.fullmatch(
-            r"\?\S+",
-            v,
-            flags=re.IGNORECASE | re.DOTALL
-        ) is None for v in vars
-    ):
-        return s
-
-    # first inject OPTIONAL statements into WHERE clause
-    # to get the labels
-    where_match = next(re.finditer(
-        WHERE_REGEX,
-        s,
-        flags=re.IGNORECASE | re.DOTALL
-    ), None)
-    if where_match is None:
-        return s
-    end = where_match.end(1)
-    label_s = " ".join(_label_statement(var[1:], lang) for var in vars)
-    s = s[:end].rstrip() + f" {label_s} " + s[end:].lstrip()
-
-    # then add label variables to the SELECT clause
-    select_match = next(re.finditer(
-        SELECT_REGEX,
-        s,
-        flags=re.IGNORECASE | re.DOTALL
-    ), None)
-    if select_match is None:
-        return org_s
-    end = select_match.end(1)
-    label_s = " ".join(f"?{var[1:]}Label" for var in vars)
-    s = s[:end].rstrip() + f" {label_s} " + s[end:].lstrip()
-    return s
-
-
 def postprocess_output(
     s: str,
     special_tokens: Tuple[str, ...] = (

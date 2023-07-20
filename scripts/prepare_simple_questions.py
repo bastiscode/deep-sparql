@@ -180,7 +180,7 @@ def prepare(args: argparse.Namespace):
                     f"{args.bracket_end}\n"
                 )
                 if example_strs[i]:
-                    of.write(f"{example_strs[i]} ")
+                    of.write(f"{example_strs[i]} >>>> ")
                 of.write(f"{question}\n")
 
 
