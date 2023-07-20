@@ -776,7 +776,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         n_examples: int = 3,
         batch_size: int = 16,
     ) -> List[str]:
-        if self._example_index is not None:
+        if self._example_index is not None and n_examples > 0:
             examples = vector.get_nearest_neighbors(
                 questions,
                 self._example_index,
