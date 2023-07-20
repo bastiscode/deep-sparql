@@ -13,3 +13,4 @@ models:
   - path: env(EXPERIMENT)
     entity_index: env(SPARQL_PREFIX_INDEX)/entities.bin
     property_index: env(SPARQL_PREFIX_INDEX)/properties.bin
+    example_index: env(SPARQL_EXAMPLE_INDEX:None)

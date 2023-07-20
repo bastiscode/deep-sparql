@@ -31,9 +31,11 @@ class SPARQLServer(TextCorrectionServer):
             cor_name = self.name_to_text_corrector[name]
             (cor, _) = self.text_correctors[cor_name]
             assert isinstance(cor, SPARQLGenerator)
+            example_index = cfg.get("example_index", None)
             cor.set_indices(
                 cfg["entity_index"],
-                cfg["property_index"]
+                cfg["property_index"],
+                example_index
             )
             self.logger.info(
                 f"loaded indices from {cfg['entity_index']} "
