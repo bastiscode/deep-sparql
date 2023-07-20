@@ -10,6 +10,7 @@ from tqdm import tqdm
 from text_correction_utils import tokenization, data, io
 
 from deep_sparql.model import PRETRAINED_ENCODERS, PretrainedEncoder
+from deep_sparql.utils import format_examples
 
 
 class Index:
@@ -212,8 +213,6 @@ def sample_nearest_neighbors(
                 for ex, dist in nns
                 if dist > 0.0
             ]
-            nn_str = " ".join(
-                nns[:random.randint(0, max_neighbors)]
-            )
+            nn_str = format_examples(nns[:random.randint(0, max_neighbors)])
             nn_strs.append(nn_str)
     return nn_strs

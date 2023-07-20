@@ -5,10 +5,9 @@ from tqdm import tqdm
 
 
 from deep_sparql.utils import (
-    load_str_index,
+    load_wikidata_index,
     load_inverse_index,
     wikidata_prefixes,
-    SPARQL_PREFIX
 )
 from deep_sparql.vector import Index, sample_nearest_neighbors
 
@@ -51,17 +50,17 @@ def prepare(args: argparse.Namespace):
             and args.property_index is not None
             and args.inverse_index is not None
         ), "all indices must be provided if --no-indices is not set"
-        entity_index = load_str_index(args.entity_index)
-        property_index = load_str_index(args.property_index)
+        entity_index, entity_redir = load_wikidata_index(args.entity_index)
+        property_index, _ = load_wikidata_index(args.property_index)
         inverse_index = load_inverse_index(args.inverse_index)
         # delete inverse relations for child, father, mother relations
         # from index
-        child_invs = inverse_index.get(40, [])
-        for prop_id in [22, 25]:
+        child_invs = inverse_index.get("wdt:P40", [])
+        for prop_id in ["wdt:P22", "wdt:P25"]:
             if prop_id in child_invs:
                 child_invs.remove(prop_id)
     else:
-        entity_index = property_index = inverse_index = {}
+        entity_index = entity_redir = property_index = inverse_index = {}
 
     if args.example_index is not None:
         example_index = Index.load(args.example_index)
@@ -117,8 +116,10 @@ def prepare(args: argparse.Namespace):
                 continue
 
             if subj != "x":
-                subj_id = int(subj[1:])
+                subj_id = f"wd:{subj}"
                 if subj_id not in entity_index:
+                    subj_id = entity_redir.get(subj_id, None)
+                if subj_id is None or subj_id not in entity_index:
                     continue
                 subjs = [
                     surround(subj, args.entity_begin, args.entity_end)
@@ -126,8 +127,10 @@ def prepare(args: argparse.Namespace):
                 ]
                 objs = [surround(obj, args.var_begin, args.var_end)]
             else:
-                obj_id = int(obj[1:])
+                obj_id = f"wd:{obj}"
                 if obj_id not in entity_index:
+                    obj_id = entity_redir.get(obj_id, None)
+                if obj_id is None or obj_id not in entity_index:
                     continue
                 objs = [
                     surround(obj, args.entity_begin, args.entity_end)
@@ -135,7 +138,7 @@ def prepare(args: argparse.Namespace):
                 ]
                 subjs = [surround(subj, args.var_begin, args.var_end)]
 
-            prop_id = int(prop[1:])
+            prop_id = f"wdt:{prop}"
             assert prop_id in property_index
             properties = property_index[prop_id]
             props = [
@@ -178,7 +181,7 @@ def prepare(args: argparse.Namespace):
                 )
                 if example_strs[i]:
                     of.write(f"{example_strs[i]} ")
-                of.write(f"{SPARQL_PREFIX}{question}\n")
+                of.write(f"{question}\n")
 
 
 if __name__ == "__main__":

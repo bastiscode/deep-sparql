@@ -366,6 +366,12 @@ def format_example(
     return f"{question} >> {sparql}"
 
 
+def format_examples(
+    examples: List[str],
+) -> str:
+    return " >>>> ".join(examples)
+
+
 def format_input(
     question: str,
     examples: List[str],
@@ -375,7 +381,7 @@ def format_input(
         return f"{SPARQL_PREFIX} >>>> {question}" + " >> " * decoder_only
     return (
         f"{SPARQL_PREFIX} >>>> "
-        + " >>>> ".join(examples)
+        + format_examples(examples)
         + f" >>>> {question}"
         + " >> " * decoder_only
     )
