@@ -149,7 +149,7 @@ def prepare(args: argparse.Namespace):
                         ]
                     ))
             except KeyError as e:
-                print(f"could not find {e} in entity index:\n{question}")
+                # print(f"could not find {e} in entity index:\n{question}")
                 num_invalid += 1
                 continue
 
