@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--property-index", type=str, default=None)
     parser.add_argument("--inverse-index", type=str, default=None)
     parser.add_argument("--example-index", type=str, default=None)
-    parser.add_argument("--max-num-examples", type=int, default=5)
+    parser.add_argument("--max-num-examples", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--no-indices", action="store_true")
     return parser.parse_args()

@@ -103,7 +103,7 @@ def replace_entities(
     return _replace(
         s,
         f"{open}(.+?){close}",
-        lambda e: f"{prefix}Q{index.get(e.strip().encode('utf8'))}"
+        lambda e: f"{prefix}{index.get(e.strip().encode('utf8'))}"
     )[0]
 
 
@@ -117,7 +117,7 @@ def replace_properties(
     return _replace(
         s,
         f"{open}(.+?){close}",
-        lambda p: f"{prefix}P{index.get(p.strip().encode('utf8'))}"
+        lambda p: f"{prefix}{index.get(p.strip().encode('utf8'))}"
     )[0]
 
 
@@ -170,6 +170,9 @@ def wikidata_prefixes() -> List[str]:
     return [
         f"PREFIX wd: <{WD_ENT_URL}>",
         f"PREFIX wdt: <{WD_PROP_URL}>",
+        "PREFIX p: <http://www.wikidata.org/prop/>",
+        "PREFIX ps: <http://www.wikidata.org/prop/statement/>",
+        "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
     ]
 
 
@@ -183,8 +186,8 @@ def prepare_sparql_query(
     bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>")
 ) -> str:
     s, _ = replace_vars(s, *var_special_tokens)
-    s = replace_entities(s, entity_index, "wd:", *entity_special_tokens)
-    s = replace_properties(s, property_index, "wdt:", *property_special_tokens)
+    s = replace_entities(s, entity_index, "", *entity_special_tokens)
+    s = replace_properties(s, property_index, "", *property_special_tokens)
     s = replace_brackets(s, *bracket_special_tokens)
     prefix = " ".join(wikidata_prefixes())
     return f"{prefix} {s}"

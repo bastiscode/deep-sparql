@@ -1,6 +1,6 @@
 from io import TextIOWrapper
 import os
-import time
+# import time
 import sys
 from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
 
@@ -22,6 +22,7 @@ from text_correction_utils.inference import (
     beam_search
 )
 
+from deep_sparql import vector
 from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
 from deep_sparql.utils import (
     postprocess_output,
@@ -247,6 +248,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         self._entity_index = None
         self._property_index = None
+        self._example_index = None
 
         self._output_conts = [
             self.output_tokenizer.de_tokenize(
@@ -611,6 +613,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self,
         entity_index: Optional[Union[str, prefix.Vec]] = None,
         property_index: Optional[Union[str, prefix.Vec]] = None,
+        example_index: Optional[Union[str, vector.Index]] = None,
     ) -> None:
         if entity_index is not None:
             if isinstance(entity_index, str):
@@ -653,6 +656,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             self._initial_ent_conts = [True] * len(self._output_conts)
             self._initial_prop_conts = [True] * len(self._output_conts)
 
+        # now set example index
+        if example_index is not None:
+            if isinstance(example_index, str):
+                example_index = vector.Index.load(example_index)
+            self._example_index = example_index
+
     @property
     def has_indices(self) -> bool:
         return self._entity_index is not None \
@@ -672,7 +681,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         sort: bool = True,
         num_threads: Optional[int] = None,
         raw: bool = False,
-        with_labels: bool = False,
         show_progress: bool = False,
     ) -> Union[str, List[str]]:
         input_is_string = isinstance(inputs, str)
@@ -737,11 +745,10 @@ class SPARQLGenerator(corrector.TextCorrector):
             return self._prepare_sparql_query(
                 next(iter(outputs)),
                 raw,
-                with_labels
             )
         else:
             return [
-                self._prepare_sparql_query(output, raw, with_labels)
+                self._prepare_sparql_query(output, raw)
                 for output in outputs
             ]
 
@@ -749,7 +756,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         self,
         item: data.InferenceData,
         raw: bool = False,
-        with_labels: bool = False
     ) -> str:
         if raw or not self.has_indices:
             return item.text
@@ -757,8 +763,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             item.text,
             self._entity_index,
             self._property_index,
-            with_labels,
-            item.language or "en",
             var_special_tokens=self._var_special_tokens,
             entity_special_tokens=self._ent_special_tokens,
             property_special_tokens=self._prop_special_tokens,
@@ -773,7 +777,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         sort: bool = True,
         num_threads: Optional[int] = None,
         raw: bool = False,
-        with_labels: bool = False,
         show_progress: bool = False,
     ) -> Union[Iterator[str], Iterator[data.InferenceData]]:
         loader = self._get_loader(
@@ -809,10 +812,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             yield from output
         else:
             yield from (
-                self._prepare_sparql_query(
-                    data,
-                    with_labels=with_labels
-                )
+                self._prepare_sparql_query(data)
                 for data in output
             )
 
@@ -828,7 +828,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             sort: bool = True,
             num_threads: Optional[int] = None,
             raw: bool = False,
-            with_labels: bool = False,
             show_progress: bool = False
     ) -> Optional[Iterator[str]]:
         assert input_file_format in self.supported_input_formats(), \
@@ -881,7 +880,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 output.text = self._prepare_sparql_query(
                     output,
                     raw,
-                    with_labels
                 )
                 output_file.write(f"{output.to_str(output_file_format)}\n")
 
@@ -890,7 +888,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         else:
             return (
-                self._prepare_sparql_query(output, raw, with_labels)
+                self._prepare_sparql_query(output, raw)
                 for output in outputs
             )
 

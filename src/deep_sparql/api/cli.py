@@ -96,9 +96,17 @@ class SPARQLCli(TextCorrectionCli):
                 index_dir,
                 "properties.bin"
             )
+        example_dir = os.environ.get("SPARQL_EXAMPLE_INDEX", None)
+        if (
+            self.args.example_index is None
+            and example_dir is not None
+            and os.path.exists(example_dir)
+        ):
+            self.args.example_index = example_dir
         cor.set_indices(
             self.args.entity_index,
-            self.args.property_index
+            self.args.property_index,
+            self.args.example_index
         )
         self.indices = cor.get_indices()
         return cor
@@ -109,7 +117,10 @@ class SPARQLCli(TextCorrectionCli):
         iter: Iterator[data.InferenceData]
     ) -> Iterator[data.InferenceData]:
         yield from corrector.generate_iter(
-            ((SPARQL_PREFIX + data.text, data.language) for data in iter),
+            (
+                (f"{SPARQL_PREFIX} >>>> {data.text}", data.language)
+                for data in iter
+            ),
             self.args.batch_size,
             self.args.batch_max_tokens,
             not self.args.unsorted,
@@ -138,7 +149,6 @@ class SPARQLCli(TextCorrectionCli):
             self.args.batch_max_tokens,
             not self.args.unsorted,
             self.args.num_threads,
-            with_labels=self.args.with_labels,
             show_progress=self.args.progress
         )
 
@@ -178,6 +188,12 @@ def main():
         type=str,
         default=None,
         help="Path to property index file"
+    )
+    parser.add_argument(
+        "--example-index",
+        type=str,
+        default=None,
+        help="Path to example index directory"
     )
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument(
