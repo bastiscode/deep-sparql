@@ -1,3 +1,3 @@
 - type: file_pair
-  input_path: env(LC_QUAD_INPUT:datasets/lcquad_2.0/train_questions.txt)
-  target_path: env(LC_QUAD_TARGET:datasets/lcquad_2.0/train_sparql.txt)
+  input_path: datasets/lcquad_2.0/env(LC_QUAD_INPUT:train_questions).txt
+  target_path: datasets/lcquad_2.0/env(LC_QUAD_TARGET:train_sparql).txt
