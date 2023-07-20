@@ -9,7 +9,7 @@ import numpy as np
 from tqdm import tqdm
 
 from deep_sparql.utils import (
-    load_str_index,
+    load_wikidata_index,
     wikidata_prefixes,
     SPARQL_PREFIX
 )
@@ -48,10 +48,10 @@ def prepare(args: argparse.Namespace):
             args.entity_index is not None
             and args.property_index is not None
         ), "all indices must be provided if --no-indices is not set"
-        entity_index = load_str_index(args.entity_index)
-        property_index = load_str_index(args.property_index)
+        entity_index, entity_redir = load_wikidata_index(args.entity_index)
+        property_index, _ = load_wikidata_index(args.property_index)
     else:
-        entity_index = property_index = {}
+        entity_index = entity_redir = property_index = {}
 
     if args.example_index is not None:
         example_index = Index.load(args.example_index)
@@ -78,9 +78,6 @@ def prepare(args: argparse.Namespace):
                 continue
 
             sparql = clean(sample["sparql_wikidata"])
-            # if "wikibase:" in sparql:
-            #     num_invalid += 1
-            #     continue
 
             question = sample["question"]
             if question is None:
@@ -134,23 +131,25 @@ def prepare(args: argparse.Namespace):
 
             # get entities
             try:
-                ents = [
-                    (
-                        match.group(),
+                ents = []
+                for match in re.finditer(
+                    r"(wd:Q\d+)",
+                    sparql,
+                    flags=re.IGNORECASE
+                ):
+                    ent = match.group(1)
+                    if ent not in entity_index:
+                        ent = entity_redir[ent]
+                    ents.append((
+                        ent,
                         [
                             surround(e, args.entity_begin, args.entity_end)
                             for e in
-                            reversed(entity_index[int(match.group(1))])
+                            reversed(entity_index[ent])
                         ]
-                    )
-                    for match in re.finditer(
-                        r"wd:Q(\d+)",
-                        sparql,
-                        flags=re.IGNORECASE
-                    )
-                ]
+                    ))
             except KeyError as e:
-                # print(f"could not find {e} in entity index")
+                print(f"could not find {e} in entity index:\n{question}")
                 num_invalid += 1
                 continue
 
@@ -162,16 +161,16 @@ def prepare(args: argparse.Namespace):
                         [
                             surround(p, args.property_begin, args.property_end)
                             for p in
-                            reversed(property_index[int(match.group(1))])
+                            reversed(property_index[match.group(1)])
                         ]
                     )
                     for match in re.finditer(
-                        r"(?:wdt|p|pq|ps):P(\d+)",
+                        r"((?:wdt|p|pq|ps):P\d+)",
                         sparql,
                         flags=re.IGNORECASE
                     )
                 ]
-            except KeyError:
+            except KeyError as e:
                 # print(f"could not find {e} in property index")
                 num_invalid += 1
                 continue

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from deep_sparql.utils import (
     load_str_index,
-    load_id_index,
+    load_inverse_index,
     wikidata_prefixes,
     SPARQL_PREFIX
 )
@@ -53,7 +53,7 @@ def prepare(args: argparse.Namespace):
         ), "all indices must be provided if --no-indices is not set"
         entity_index = load_str_index(args.entity_index)
         property_index = load_str_index(args.property_index)
-        inverse_index = load_id_index(args.inverse_index)
+        inverse_index = load_inverse_index(args.inverse_index)
         # delete inverse relations for child, father, mother relations
         # from index
         child_invs = inverse_index.get(40, [])

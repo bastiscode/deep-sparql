@@ -3,7 +3,9 @@ import collections
 import requests
 from typing import Dict, List, Callable, Any, Tuple
 
-from text_correction_utils import prefix, tokenization
+from tqdm import tqdm
+
+from text_correction_utils import prefix, tokenization, text
 from text_correction_utils.api.table import generate_table
 
 SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
@@ -17,27 +19,45 @@ WD_QLEVER_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
 SPARQL_PREFIX = "Generate SPARQL"
 
 
-def load_str_index(path: str) -> Dict[int, List[str]]:
+def load_wikidata_index(
+    path: str,
+    progress: bool = True
+) -> Tuple[Dict[str, List[str]], Dict[str, str]]:
+    num_lines, _ = text.file_size(path)
+    with open(path, "r", encoding="utf8") as f:
+        index = {}
+        redirect = {}
+        for line in tqdm(
+            f,
+            total=num_lines,
+            desc="loading wikidata index",
+            disable=not progress,
+            leave=False
+        ):
+            split = line.strip().split("\t")
+            assert len(split) >= 3
+            obj_id = split[0].strip()
+            redirects = [
+                redir for redir in split[1].strip().split(";")
+                if redir.strip() != ""
+            ]
+            obj_names = [n.strip() for n in split[2:]]
+            assert obj_id not in index, \
+                f"duplicate id {obj_id}"
+            index[obj_id] = obj_names
+            for red in redirects:
+                assert red not in redirect, \
+                    f"duplicate redirect {red}"
+                redirect[red] = obj_id
+        return index, redirect
+
+
+def load_inverse_index(path: str) -> Dict[str, List[str]]:
     with open(path, "r", encoding="utf8") as f:
         index = {}
         for line in f:
             split = line.strip().split("\t")
-            assert len(split) == 2
-            obj_name = split[0]
-            obj_id = int(split[1])
-            if obj_id not in index:
-                index[obj_id] = [obj_name]
-            else:
-                index[obj_id].append(obj_name)
-        return index
-
-
-def load_id_index(path: str) -> Dict[int, List[int]]:
-    with open(path, "r", encoding="utf8") as f:
-        index = {}
-        for line in f:
-            split = line.strip().split("\t")
-            assert len(split) == 2
+            assert len(split) == 3
             obj_id_1 = int(split[0])
             obj_id_2 = int(split[1])
             if obj_id_1 not in index:
@@ -343,8 +363,7 @@ def format_example(
     question: str,
     sparql: str,
 ) -> str:
-    return f"<box><boq>{question}<eoq>" \
-        f"<bos>{sparql}<eos><eox>"
+    return f"{question} >> {sparql}"
 
 
 def format_input(
@@ -353,11 +372,10 @@ def format_input(
     decoder_only: bool = False
 ) -> str:
     if len(examples) == 0:
-        return f"{SPARQL_PREFIX} >> {question}" + " >> " * decoder_only
+        return f"{SPARQL_PREFIX} >>>> {question}" + " >> " * decoder_only
     return (
-        SPARQL_PREFIX
-        + " >> "
-        + " ".join(examples)
-        + f" {question}"
+        f"{SPARQL_PREFIX} >>>> "
+        + " >>>> ".join(examples)
+        + f" >>>> {question}"
         + " >> " * decoder_only
     )
