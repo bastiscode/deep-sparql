@@ -11,7 +11,6 @@ from tqdm import tqdm
 from deep_sparql.utils import (
     load_wikidata_index,
     wikidata_prefixes,
-    SPARQL_PREFIX
 )
 from deep_sparql.vector import Index, sample_nearest_neighbors
 
