@@ -3,5 +3,5 @@ configs:
   - type: clean
   - type: normalize
     scheme: NFKC
-  - type: prefix
-    prefix: pad(Generate SPARQL >>>>;0;1; )
+  # - type: prefix
+  #   prefix: pad(Generate SPARQL >>>>;0;1; )

@@ -12,7 +12,7 @@ from deep_sparql.utils import (
     load_wikidata_index,
     wikidata_prefixes,
 )
-from deep_sparql.vector import Index, sample_nearest_neighbors
+from deep_sparql.vector import Index, get_nearest_neighbors
 
 
 def parse_args() -> argparse.Namespace:
@@ -198,7 +198,7 @@ def prepare(args: argparse.Namespace):
                     sparqls.append(rep_sparql)
 
             if example_index is not None:
-                example_strs = sample_nearest_neighbors(
+                example_strs = get_nearest_neighbors(
                     questions,
                     example_index,
                     args.max_num_examples,

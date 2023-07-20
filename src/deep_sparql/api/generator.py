@@ -25,6 +25,7 @@ from text_correction_utils.inference import (
 from deep_sparql import vector
 from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
 from deep_sparql.utils import (
+    format_input,
     postprocess_output,
     prepare_sparql_query,
     special_token_or_token_ids,
@@ -769,6 +770,29 @@ class SPARQLGenerator(corrector.TextCorrector):
             bracket_special_tokens=self._bracket_special_tokens,
         )
 
+    def prepare_questions(
+        self,
+        questions: List[str],
+        n_examples: int = 3,
+        batch_size: int = 16,
+    ) -> List[str]:
+        if self._example_index is not None:
+            examples = vector.get_nearest_neighbors(
+                questions,
+                self._example_index,
+                n_examples,
+                batch_size=batch_size,
+                progress=False,
+                sample=False
+            )
+        else:
+            examples = [[]] * len(questions)
+
+        return [
+            format_input(q, ex)
+            for q, ex in zip(questions, examples)
+        ]
+
     def generate_iter(
         self,
         iter: Iterator[Tuple[str, Optional[str]]],
@@ -778,9 +802,17 @@ class SPARQLGenerator(corrector.TextCorrector):
         num_threads: Optional[int] = None,
         raw: bool = False,
         show_progress: bool = False,
+        n_examples: int = 3,
     ) -> Union[Iterator[str], Iterator[data.InferenceData]]:
         loader = self._get_loader(
-            (data.InferenceData(s, language=l) for s, l in iter),
+            (
+                data.InferenceData(
+                    s if raw else
+                    self.prepare_questions([s], n_examples)[0],
+                    language=l
+                )
+                for s, l in iter
+            ),
             batch_size,
             batch_max_tokens,
             sort,

@@ -73,6 +73,7 @@ class SPARQLServer(TextCorrectionServer):
 
             search_strategy = json.get("search_strategy", "greedy")
             beam_width = json.get("beam_width", 5)
+            n_examples = json.get("num_examples", 3)
 
             try:
                 with self.text_corrector(json["model"]) as cor:
@@ -84,11 +85,12 @@ class SPARQLServer(TextCorrectionServer):
                         beam_width
                     )
                     start = time.perf_counter()
+                    questions = cor.prepare_questions(
+                        [q.strip() for q in json["questions"]],
+                        n_examples,
+                    )
                     iter = ProgressIterator(
-                        (
-                            (SPARQL_PREFIX + q.strip(), None)
-                            for q in json["questions"]
-                        ),
+                        ((q, None) for q in questions),
                         size_fn=lambda e: len(e[0].encode("utf8"))
                     )
                     generated = []
@@ -100,9 +102,11 @@ class SPARQLServer(TextCorrectionServer):
                         generated.append(item.text)
                         if not cor.has_indices:
                             continue
+                        indices = cor.get_indices()
+                        assert indices is not None
                         query = prepare_sparql_query(
                             item.text,
-                            *cor.get_indices(),
+                            *indices,
                             var_special_tokens=cor._var_special_tokens,
                             entity_special_tokens=cor._ent_special_tokens,
                             property_special_tokens=cor._prop_special_tokens,
@@ -115,6 +119,7 @@ class SPARQLServer(TextCorrectionServer):
                     s = end - start
 
                     output = {
+                        "input": questions,
                         "raw": generated,
                         "runtime": {"b": b, "s": s}
                     }

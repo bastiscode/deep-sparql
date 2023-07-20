@@ -188,13 +188,14 @@ class Index:
         return result
 
 
-def sample_nearest_neighbors(
+def get_nearest_neighbors(
     questions: List[str],
     index: Index,
-    max_neighbors: int,
+    n: int,
     batch_size: int = 16,
     progress: bool = True,
-) -> List[str]:
+    sample: bool = False
+) -> List[List[str]]:
     nn_strs = []
     for i in tqdm(
         range(0, len(questions), batch_size),
@@ -205,7 +206,7 @@ def sample_nearest_neighbors(
     ):
         neighbors = index.query(
             questions[i:i + batch_size],
-            max_neighbors + 1,
+            n + 1 if sample else n,
         )
         for nns in neighbors:
             nns = [
@@ -213,6 +214,7 @@ def sample_nearest_neighbors(
                 for ex, dist in nns
                 if dist > 0.0
             ]
-            nn_str = format_examples(nns[:random.randint(0, max_neighbors)])
-            nn_strs.append(nn_str)
+            if sample:
+                nns = nns[:random.randint(0, n)]
+            nn_strs.append(nns)
     return nn_strs

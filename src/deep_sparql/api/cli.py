@@ -118,7 +118,13 @@ class SPARQLCli(TextCorrectionCli):
     ) -> Iterator[data.InferenceData]:
         yield from corrector.generate_iter(
             (
-                (f"{SPARQL_PREFIX} >>>> {data.text}", data.language)
+                (
+                    corrector.prepare_questions(
+                        [data.text],
+                        self.args.n_examples
+                    )[0],
+                    data.language
+                )
                 for data in iter
             ),
             self.args.batch_size,
@@ -194,6 +200,12 @@ def main():
         type=str,
         default=None,
         help="Path to example index directory"
+    )
+    parser.add_argument(
+        "--n-examples",
+        type=int,
+        default=3,
+        help="Number of examples to use for each question"
     )
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument(

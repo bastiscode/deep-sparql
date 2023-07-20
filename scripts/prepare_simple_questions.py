@@ -5,11 +5,13 @@ from tqdm import tqdm
 
 
 from deep_sparql.utils import (
+    SPARQL_PREFIX,
     load_wikidata_index,
     load_inverse_index,
     wikidata_prefixes,
+    format_input
 )
-from deep_sparql.vector import Index, sample_nearest_neighbors
+from deep_sparql.vector import Index, get_nearest_neighbors
 
 
 from text_correction_utils.io import load_text_file
@@ -74,14 +76,15 @@ def prepare(args: argparse.Namespace):
 
     if example_index is not None:
         questions = [line.split("\t")[-1].strip() for line in lines]
-        example_strs = sample_nearest_neighbors(
+        example_strs = get_nearest_neighbors(
             questions,
             example_index,
             args.max_num_examples,
-            args.batch_size
+            args.batch_size,
+            sample=not args.no_indices
         )
     else:
-        example_strs = [""] * len(lines)
+        example_strs = [[]] * len(lines)
 
     with open(args.input, "w") as of, \
             open(args.target, "w") as tf:
@@ -100,7 +103,7 @@ def prepare(args: argparse.Namespace):
                 prop = "P" + prop[1:]
 
             if args.no_indices:
-                of.write(f"{question}\n")
+                of.write(format_input(question, example_strs[i]) + "\n")
                 if subj == "x":
                     subj = "?" + subj
                     obj = "wd:" + obj
@@ -179,9 +182,7 @@ def prepare(args: argparse.Namespace):
                     f"{subj} {prop} {obj} . "
                     f"{args.bracket_end}\n"
                 )
-                if example_strs[i]:
-                    of.write(f"{example_strs[i]} >>>> ")
-                of.write(f"{question}\n")
+                of.write(format_input(question, example_strs[i]) + "\n")
 
 
 if __name__ == "__main__":
