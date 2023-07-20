@@ -11,7 +11,9 @@ from transformers import (
     MT5ForConditionalGeneration,
     PreTrainedModel,
     T5ForConditionalGeneration,
-    LlamaForCausalLM
+    LlamaForCausalLM,
+    BertModel,
+    RobertaModel
 )
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
@@ -25,6 +27,17 @@ class Model(nn.Module):
         raise NotImplementedError
 
 
+PRETRAINED_ENCODERS = [
+    "t5-small",
+    "t5-base",
+    "t5-large",
+    "bert-base-uncased",
+    "bert-large-uncased",
+    "roberta-base",
+    "roberta-large"
+]
+
+
 class PretrainedEncoder(Model):
     def __init__(
         self,
@@ -32,20 +45,19 @@ class PretrainedEncoder(Model):
         vocab_size: int,
     ):
         super().__init__()
-        assert name in {
-            "t5-small",
-            "t5-base",
-            "t5-large",
-            "t5-3b",
-            "t5-11b",
-        }
+        assert name in PRETRAINED_ENCODERS, "unknown model"
         self.name = name
-        model = PretrainedEncoderDecoder(
-            name,
-            vocab_size=vocab_size
-        ).model
-        assert isinstance(model, PreTrainedModel)
-        self.model = model.encoder
+        if name.startswith("t5"):
+            model = PretrainedEncoderDecoder(
+                name,
+                vocab_size=vocab_size
+            ).model
+            assert isinstance(model, PreTrainedModel)
+            self.model = model.encoder
+        elif name.startswith("bert"):
+            self.model = BertModel.from_pretrained(name)
+        else:
+            self.model = RobertaModel.from_pretrained(name)
 
     def forward(
         self,
@@ -68,6 +80,30 @@ class PretrainedEncoder(Model):
         return output.last_hidden_state
 
 
+PRETRAINED_ENCODER_DECODERS = [
+    "t5-small",
+    "t5-base",
+    "t5-large",
+    "t5-3b",
+    "t5-11b",
+    "mt5-small",
+    "mt5-base",
+    "mt5-large",
+    "mt5-xl",
+    "mt5-xxl",
+    "t5-v1_1-small",
+    "t5-v1_1-base",
+    "t5-v1_1-large",
+    "t5-v1_1-xl",
+    "t5-v1_1-xxl",
+    "flan-t5-small",
+    "flan-t5-base",
+    "flan-t5-large",
+    "flan-t5-xl",
+    "flan-t5-xxl",
+]
+
+
 class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
@@ -75,28 +111,7 @@ class PretrainedEncoderDecoder(Model):
         vocab_size: int,
     ):
         super().__init__()
-        assert name in {
-            "t5-small",
-            "t5-base",
-            "t5-large",
-            "t5-3b",
-            "t5-11b",
-            "mt5-small",
-            "mt5-base",
-            "mt5-large",
-            "mt5-xl",
-            "mt5-xxl",
-            "t5-v1_1-small",
-            "t5-v1_1-base",
-            "t5-v1_1-large",
-            "t5-v1_1-xl",
-            "t5-v1_1-xxl",
-            "flan-t5-small",
-            "flan-t5-base",
-            "flan-t5-large",
-            "flan-t5-xl",
-            "flan-t5-xxl",
-        }
+        assert name in PRETRAINED_ENCODER_DECODERS, "unknown model"
         if name.startswith("mt5"):
             self.model = MT5ForConditionalGeneration.from_pretrained(
                 f"google/{name}"
@@ -108,7 +123,8 @@ class PretrainedEncoderDecoder(Model):
                 f"google/{name}"
             )
 
-        num_emb, _ = self.model.get_input_embeddings().weight.shape  # type: ignore
+        assert isinstance(self.model, PreTrainedModel)
+        num_emb, _ = self.model.get_input_embeddings().weight.shape
         if vocab_size > num_emb:
             raise NotImplementedError(
                 f"vocab size {vocab_size:,} is larger than number of "

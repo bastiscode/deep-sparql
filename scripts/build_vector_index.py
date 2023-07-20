@@ -4,6 +4,7 @@ import argparse
 import torch
 
 from text_correction_utils import io
+from deep_sparql.model import PRETRAINED_ENCODERS
 
 
 from deep_sparql.vector import Index
@@ -30,7 +31,7 @@ def parse_args() -> argparse.Namespace:
         "-m",
         "--model",
         type=str,
-        choices=["t5-small", "t5-base", "t5-large"],
+        choices=PRETRAINED_ENCODERS,
         required=True,
     )
     parser.add_argument(

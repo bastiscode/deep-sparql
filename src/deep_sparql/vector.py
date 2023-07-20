@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from text_correction_utils import tokenization, data, io
 
-from deep_sparql.model import PretrainedEncoder
+from deep_sparql.model import PRETRAINED_ENCODERS, PretrainedEncoder
 
 
 class Index:
@@ -32,17 +32,17 @@ class Index:
         model_name: str,
         device: Union[str, torch.device] = "cuda",
     ) -> Tuple[Dict[str, Any], PretrainedEncoder, torch.device]:
-        assert model_name in ["t5-small", "t5-base", "t5-large"], \
-            f"model name must be one of 't5-small', 't5-base', 't5-large', " \
-            f"got {model_name}"
+        assert model_name in PRETRAINED_ENCODERS, "unknown model"
+
+        pad = "[PAD]" if model_name.startswith("bert") else "<pad>"
         tokenizer_cfg = {
             "tokenize": {
                 "type": "huggingface",
                 "name": model_name,
             },
             "special": {
-                "pad": "<pad>",
-                "tokens": ["<pad>"],
+                "pad": pad,
+                "tokens": [pad],
             }
         }
         tokenizer = tokenization.Tokenizer.from_config(tokenizer_cfg)
