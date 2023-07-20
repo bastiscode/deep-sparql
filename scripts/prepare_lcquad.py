@@ -214,7 +214,7 @@ def prepare(args: argparse.Namespace):
                 question = questions[idx]
                 if example_strs[idx]:
                     inf.write(f"{example_strs[idx]} ")
-                inf.write(f"{SPARQL_PREFIX}{question}\n")
+                inf.write(f"{question}\n")
                 tf.write(f"{sparql}\n")
 
         print(

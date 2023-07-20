@@ -4,4 +4,4 @@ configs:
   - type: normalize
     scheme: NFKC
   - type: prefix
-    prefix: pad(Generate SPARQL query >>;0;1; )
+    prefix: pad(Generate SPARQL >>>>;0;1; )
