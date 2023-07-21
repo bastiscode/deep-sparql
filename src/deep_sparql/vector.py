@@ -212,7 +212,7 @@ def get_nearest_neighbors(
             nns = [
                 ex
                 for ex, dist in nns
-                if dist > 0.0
+                if not sample or dist > 0.0
             ]
             if sample:
                 nns = nns[:random.randint(0, n)]

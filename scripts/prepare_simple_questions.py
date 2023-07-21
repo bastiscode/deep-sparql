@@ -5,7 +5,6 @@ from tqdm import tqdm
 
 
 from deep_sparql.utils import (
-    SPARQL_PREFIX,
     load_wikidata_index,
     load_inverse_index,
     wikidata_prefixes,
