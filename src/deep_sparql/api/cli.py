@@ -10,8 +10,6 @@ from deep_sparql import version
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.api.server import SPARQLServer
 from deep_sparql.utils import (
-    SPARQL_PREFIX,
-    prepare_sparql_query,
     query_qlever,
     format_qlever_result,
     generate_label_queries
@@ -26,18 +24,11 @@ class SPARQLCli(TextCorrectionCli):
         return version.__version__
 
     def format_output(self, item: data.InferenceData) -> Iterable[str]:
-        if self.indices is None:
+        self.cor: SPARQLGenerator
+        if not self.cor.has_indices:
             yield item.text
             return
-        self.cor: SPARQLGenerator
-        query = prepare_sparql_query(
-            item.text,
-            *self.indices,
-            var_special_tokens=self.cor._var_special_tokens,
-            entity_special_tokens=self.cor._ent_special_tokens,
-            property_special_tokens=self.cor._prop_special_tokens,
-            bracket_special_tokens=self.cor._bracket_special_tokens
-        )
+        query = self.cor.prepare_sparql_query(item.text)
         if not self.args.execute and not self.args.execute_with_labels:
             yield query
             return

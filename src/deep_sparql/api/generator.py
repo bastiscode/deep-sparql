@@ -657,7 +657,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             self._initial_ent_conts = [True] * len(self._output_conts)
             self._initial_prop_conts = [True] * len(self._output_conts)
 
-        # now set example index
         if example_index is not None:
             if isinstance(example_index, str):
                 example_index = vector.Index.load(example_index)
@@ -743,25 +742,23 @@ class SPARQLGenerator(corrector.TextCorrector):
             )
 
         if input_is_string:
-            return self._prepare_sparql_query(
-                next(iter(outputs)),
-                raw,
-            )
+            output = next(iter(outputs)).text
+            return output if raw else self.prepare_sparql_query(output)
         else:
             return [
-                self._prepare_sparql_query(output, raw)
+                output.text if raw
+                else self.prepare_sparql_query(output.text)
                 for output in outputs
             ]
 
-    def _prepare_sparql_query(
+    def prepare_sparql_query(
         self,
-        item: data.InferenceData,
-        raw: bool = False,
+        output: str,
     ) -> str:
-        if raw or not self.has_indices:
-            return item.text
+        if self.has_indices:
+            return output
         return prepare_sparql_query(
-            item.text,
+            output,
             self._entity_index,
             self._property_index,
             var_special_tokens=self._var_special_tokens,
@@ -844,7 +841,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             yield from output
         else:
             yield from (
-                self._prepare_sparql_query(data)
+                self.prepare_sparql_query(data.text)
                 for data in output
             )
 
@@ -909,10 +906,8 @@ class SPARQLGenerator(corrector.TextCorrector):
                 output_file = open(output_file, "w", encoding="utf8")
 
             for output in outputs:
-                output.text = self._prepare_sparql_query(
-                    output,
-                    raw,
-                )
+                if not raw:
+                    output.text = self.prepare_sparql_query(output.text)
                 output_file.write(f"{output.to_str(output_file_format)}\n")
 
             if output_file_is_str:
@@ -920,7 +915,8 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         else:
             return (
-                self._prepare_sparql_query(output, raw)
+                output.text if raw else
+                self.prepare_sparql_query(output.text)
                 for output in outputs
             )
 
