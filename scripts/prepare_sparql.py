@@ -21,6 +21,7 @@ def prepare(args: argparse.Namespace):
 
     cor = SPARQLGenerator.from_experiment(
         args.experiment,
+        device="cpu"
     )
     cor.set_indices(entity_index, property_index)
 
