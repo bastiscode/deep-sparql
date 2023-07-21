@@ -3,7 +3,7 @@ import os
 import json
 import re
 import random
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from tqdm import tqdm
@@ -11,6 +11,7 @@ from tqdm import tqdm
 from deep_sparql.utils import (
     load_wikidata_index,
     wikidata_prefixes,
+    format_input
 )
 from deep_sparql.vector import Index, get_nearest_neighbors
 
@@ -52,64 +53,93 @@ def prepare(args: argparse.Namespace):
     else:
         entity_index = entity_redir = property_index = {}
 
-    if args.example_index is not None:
-        example_index = Index.load(args.example_index)
-    else:
-        example_index = None
-
     os.makedirs(os.path.dirname(args.input), exist_ok=True)
     os.makedirs(os.path.dirname(args.target), exist_ok=True)
-
-    with open(args.data, "r", encoding="utf8") as inf:
-        data = json.load(inf)
 
     def clean(s: str) -> str:
         return re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
 
+    with open(args.data, "r", encoding="utf8") as inf:
+        raw = json.load(inf)
+
     num_invalid = 0
     num_too_long = 0
     lengths = []
+    data = []
+    for sample in raw:
+        if "sparql_wikidata" not in sample:
+            num_invalid += 1
+            continue
+
+        sparql = clean(sample["sparql_wikidata"])
+
+        question = sample["question"]
+        if question is None:
+            num_invalid += 1
+            continue
+        question = clean(question)
+
+        raw_questions = [question]
+        if "paraphrased_question" in sample:
+            par = sample["paraphrased_question"]
+            if isinstance(par, list):
+                raw_questions.extend(clean(p) for p in par)
+            else:
+                raw_questions.append(clean(par))
+
+        for q in raw_questions:
+            lengths.append(len(q))
+
+        # filter questions based on length
+        questions = [
+            q for q in raw_questions
+            if len(q) <= 256
+        ]
+        num_too_long += len(raw_questions) - len(questions)
+        if len(questions) == 0:
+            continue
+
+        data.append((questions, sparql))
+
+    if args.example_index is not None:
+        example_index = Index.load(args.example_index)
+        questions = []
+        lengths = []
+        for qs, _ in data:
+            questions.extend(qs)
+            lengths.append(len(questions))
+        neighbors = get_nearest_neighbors(
+            [q for qs, _ in data for q in qs],
+            example_index,
+            args.max_num_examples,
+            args.batch_size,
+            sample=not args.no_indices
+        )
+        example_strs = []
+        start = 0
+        for length in lengths:
+            example_strs.append(neighbors[start:start + length])
+            start += length
+    else:
+        example_strs = None
+    example_strs: Optional[List[List[List[str]]]]
+
     with open(args.target, "w", encoding="utf8") as tf, \
             open(args.input, "w", encoding="utf8") as inf:
-        for sample in tqdm(data, "preparing lc quad", leave=False):
-            if "sparql_wikidata" not in sample:
-                num_invalid += 1
-                continue
-
-            sparql = clean(sample["sparql_wikidata"])
-
-            question = sample["question"]
-            if question is None:
-                num_invalid += 1
-                continue
-            question = clean(question)
-
-            raw_questions = [question]
-            if "paraphrased_question" in sample:
-                par = sample["paraphrased_question"]
-                if isinstance(par, list):
-                    raw_questions.extend(clean(p) for p in par)
-                else:
-                    raw_questions.append(clean(par))
-
-            for q in raw_questions:
-                lengths.append(len(q))
-
-            # filter questions based on length
-            questions = [
-                q for q in raw_questions
-                if len(q) <= 256
-            ]
-            num_too_long += len(raw_questions) - len(questions)
-            if len(questions) == 0:
-                continue
-
+        for i, (questions, sparql) in tqdm(
+            enumerate(data),
+            "preparing lc quad",
+            leave=False
+        ):
             if args.no_indices:
-                for question in questions:
+                for j, question in enumerate(questions):
                     inf.write(f"{question}\n")
+                    examples = example_strs[i][j] if example_strs is not None \
+                        else []
+                    inf.write(format_input(question, examples) + "\n")
                     prefix = " ".join(wikidata_prefixes())
                     tf.write(f"{prefix} {sparql}\n")
-                    continue
+                continue
 
             # replace variables
             for match in re.finditer(
@@ -197,23 +227,13 @@ def prepare(args: argparse.Namespace):
 
                     sparqls.append(rep_sparql)
 
-            if example_index is not None:
-                example_strs = get_nearest_neighbors(
-                    questions,
-                    example_index,
-                    args.max_num_examples,
-                    args.batch_size
-                )
-            else:
-                example_strs = [""] * len(questions)
-
             sparqls = replace_ents_and_props(sparql)
             for sparql in sparqls:
                 idx = random.randint(0, len(questions) - 1)
                 question = questions[idx]
-                if example_strs[idx]:
-                    inf.write(f"{example_strs[idx]} ")
-                inf.write(f"{question}\n")
+                examples = example_strs[i][idx] if example_strs is not None \
+                    else []
+                inf.write(format_input(question, examples) + "\n")
                 tf.write(f"{sparql}\n")
 
         print(

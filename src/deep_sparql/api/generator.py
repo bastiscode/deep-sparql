@@ -755,7 +755,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self,
         output: str,
     ) -> str:
-        if self.has_indices:
+        if not self.has_indices:
             return output
         return prepare_sparql_query(
             output,
