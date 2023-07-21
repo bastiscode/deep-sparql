@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from deep_sparql import SPARQLGenerator
 
@@ -24,6 +25,10 @@ def prepare(args: argparse.Namespace):
         device="cpu"
     )
     cor.set_indices(entity_index, property_index)
+
+    dir = os.path.dirname(args.output)
+    if dir:
+        os.makedirs(dir, exist_ok=True)
 
     with open(args.input, "r", encoding="utf-8") as inf, \
             open(args.output, "w", encoding="utf-8") as of:
