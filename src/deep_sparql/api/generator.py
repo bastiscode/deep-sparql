@@ -332,21 +332,19 @@ class SPARQLGenerator(corrector.TextCorrector):
             prefixes.append(decoded)
             pfx_indices.append(i)
 
-        pfx_conts = index.batch_contains_continuations(
-            prefixes
-        )
-        pfx_values = index.batch_get(prefixes)
-        for cont, value, idx in zip(pfx_conts, pfx_values, pfx_indices):
+        cont_mask, value_mask = index.batch_continuation_mask(prefixes)
+
+        for cont, has_value, idx in zip(cont_mask, value_mask, pfx_indices):
             state_idx = state_indices[idx]
             token_ids = decoding_states[state_idx].get_obj_token_ids()
             overlap = longest_overlap(token_ids, end_token_ids)
-            if value is None and len(overlap) == 0:
+            if not has_value and len(overlap) == 0:
                 continue
             assert len(overlap) < len(end_token_ids)
             cont[end_token_ids[len(overlap)]] = True
 
         indices.extend(pfx_indices)
-        conts.extend(pfx_conts)
+        conts.extend(cont_mask)
         return indices, conts
 
     def _index_select_fn(
@@ -620,39 +618,39 @@ class SPARQLGenerator(corrector.TextCorrector):
             if isinstance(entity_index, str):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
-            self._entity_index.set_continuations(
-                self._output_conts
-            )
         if property_index is not None:
             if isinstance(property_index, str):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
-            self._property_index.set_continuations(
+        if self.has_indices:
+            def _initial_conts(
+                index: prefix.Vec,
+                conts: List[bytes]
+            ) -> List[bool]:
+                index.set_continuations(conts)
+                cont_mask = index.continuation_mask(b"")[0]
+                conts_stripped = [c.lstrip() for c in conts]
+                index.set_continuations(conts_stripped)
+                cont_mask_stripped = index.continuation_mask(b"")[0]
+                return [
+                    len(cont) > 0 and (a or b)
+                    for cont, a, b in zip(
+                        conts_stripped,
+                        cont_mask,
+                        cont_mask_stripped
+                    )
+                ]
+
+            self._initial_ent_conts = _initial_conts(
+                self._entity_index,
                 self._output_conts
             )
-        if self.has_indices:
-            self._initial_ent_conts = [
-                len(cont.lstrip()) > 0 and (a or b)
-                for cont, a, b in zip(
-                    self._output_conts,
-                    self._entity_index.batch_contains(self._output_conts),
-                    self._entity_index.batch_contains([
-                        c.lstrip()
-                        for c in self._output_conts
-                    ])
-                )
-            ]
-            self._initial_prop_conts = [
-                len(cont.lstrip()) > 0 and (a or b)
-                for cont, a, b in zip(
-                    self._output_conts,
-                    self._property_index.batch_contains(self._output_conts),
-                    self._property_index.batch_contains([
-                        c.lstrip()
-                        for c in self._output_conts
-                    ])
-                )
-            ]
+            self._entity_index.set_continuations(self._output_conts)
+            self._initial_prop_conts = _initial_conts(
+                self._property_index,
+                self._output_conts
+            )
+            self._property_index.set_continuations(self._output_conts)
         else:
             self._initial_ent_conts = [True] * len(self._output_conts)
             self._initial_prop_conts = [True] * len(self._output_conts)
