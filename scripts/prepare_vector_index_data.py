@@ -4,19 +4,25 @@ import os
 
 from text_correction_utils import io
 
-from deep_sparql.utils import format_example
+from deep_sparql.utils import (
+    KNOWLEDGE_GRAPHS,
+    SPARQL_PREFIX,
+    format_example
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input",
+        "--inputs",
         type=str,
+        nargs="+",
         required=True,
     )
     parser.add_argument(
-        "--target",
+        "--targets",
         type=str,
+        nargs="+",
         required=True,
     )
     parser.add_argument(
@@ -24,25 +30,36 @@ def parse_args() -> argparse.Namespace:
         type=str,
         required=True,
     )
+    parser.add_argument(
+        "--kg",
+        choices=["wikidata", "dbpedia", "freebase"],
+        default="wikidata",
+    )
     return parser.parse_args()
 
 
 def prepare(args: argparse.Namespace):
-    inputs = io.load_text_file(args.input)
-    targets = io.load_text_file(args.target)
-    assert len(inputs) == len(targets), \
+    assert len(args.inputs) == len(args.targets), \
         "expected same number of inputs and targets"
-    dir = os.path.dirname(args.output)
-    if dir:
-        os.makedirs(dir, exist_ok=True)
-    seen = set()
-    with open(args.output, "w") as of:
-        for input, target in zip(inputs, targets):
-            if input in seen:
-                continue
-            example = format_example(input, target)
-            of.write(f"{input}\t{example}\n")
-            seen.add(input)
+    pfx = f"{KNOWLEDGE_GRAPHS[args.kg]} {SPARQL_PREFIX} >>>> "
+    for input_path, target_path in zip(args.inputs, args.targets):
+        inputs = io.load_text_file(input_path)
+        targets = io.load_text_file(target_path)
+        assert len(inputs) == len(targets), \
+            "expected same number of inputs and targets"
+        dir = os.path.dirname(args.output)
+        if dir:
+            os.makedirs(dir, exist_ok=True)
+        seen = set()
+        with open(args.output, "w") as of:
+            for input, target in zip(inputs, targets):
+                if input in seen:
+                    continue
+                assert input.startswith(pfx)
+                input_without_pfx = input[len(pfx):]
+                example = format_example(input_without_pfx, target)
+                of.write(f"{input_without_pfx}\t{example}\n")
+                seen.add(input)
 
 
 if __name__ == "__main__":

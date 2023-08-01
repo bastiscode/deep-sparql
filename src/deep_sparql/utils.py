@@ -179,7 +179,11 @@ def wikidata_prefixes() -> List[str]:
         "PREFIX wdt: <http://www.wikidata.org/prop/direct/>",
         "PREFIX p: <http://www.wikidata.org/prop/>",
         "PREFIX ps: <http://www.wikidata.org/prop/statement/>",
+        "PREFIX psn: <http://www.wikidata.org/prop/statement/"
+        "value-normalized/>",
         "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
+        "PREFIX pqn: <http://www.wikidata.org/prop/qualifier/"
+        "value-normalized/>",
     ]
 
 
