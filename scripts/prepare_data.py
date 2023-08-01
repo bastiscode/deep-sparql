@@ -360,7 +360,7 @@ def prepare(args: argparse.Namespace):
                 example_index,
                 args.max_num_examples,
                 args.batch_size,
-                sample=not args.no_indices
+                sample=split == "train"
             )
             for split in ["train", "val", "test"]
         }
