@@ -1,3 +1,3 @@
-- type: file_pair
-  input_path: datasets/qald_10/env(QALD10_INPUT:train_questions).txt
-  target_path: datasets/qald_10/env(QALD10_TARGET:train_sparql).txt
+type: file_pair
+input_path: data/datasets/wikidata-qald10/env(QALD10_INPUT:train_input).txt
+target_path: data/datasets/wikidata-qald10/env(QALD10_TARGET:train_sparql).txt
