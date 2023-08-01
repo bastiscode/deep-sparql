@@ -9,7 +9,7 @@ import numpy as np
 from tqdm import tqdm
 
 from deep_sparql.utils import (
-    load_wikidata_index,
+    load_kg_index,
     wikidata_prefixes,
     format_input
 )
@@ -48,8 +48,8 @@ def prepare(args: argparse.Namespace):
             args.entity_index is not None
             and args.property_index is not None
         ), "all indices must be provided if --no-indices is not set"
-        entity_index, entity_redir = load_wikidata_index(args.entity_index)
-        property_index, _ = load_wikidata_index(args.property_index)
+        entity_index, entity_redir = load_kg_index(args.entity_index)
+        property_index, _ = load_kg_index(args.property_index)
     else:
         entity_index = entity_redir = property_index = {}
 
@@ -133,7 +133,6 @@ def prepare(args: argparse.Namespace):
         ):
             if args.no_indices:
                 for j, question in enumerate(questions):
-                    inf.write(f"{question}\n")
                     examples = example_strs[i][j] if example_strs is not None \
                         else []
                     inf.write(format_input(question, examples) + "\n")

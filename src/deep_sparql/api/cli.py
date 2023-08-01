@@ -12,7 +12,7 @@ from deep_sparql.api.server import SPARQLServer
 from deep_sparql.utils import (
     query_qlever,
     format_qlever_result,
-    generate_label_queries
+    add_labels
 )
 
 
@@ -38,24 +38,12 @@ class SPARQLCli(TextCorrectionCli):
         try:
             result = query_qlever(query)
             if self.args.execute_with_labels:
-                lang = item.language or "en"
-                label_queries = generate_label_queries(
+                add_labels(
                     result,
-                    lang
+                    query,
+                    item.language or "en",
+                    self.args.kg
                 )
-                label_results = {
-                    var: query_qlever(q)
-                    for var, q in label_queries.items()
-                }
-                assert all(
-                    len(val) == len(result)
-                    for val in label_results.values()
-                )
-                for var, val in label_results.items():
-                    for i, v in enumerate(val):
-                        if v is None:
-                            continue
-                        result[i][var] = v[var]
             formatted = format_qlever_result(result)
             nl = "\n" if self.args.interactive else ""
             yield f"Result:\n{formatted}" + nl
@@ -173,6 +161,12 @@ def main():
         type=int,
         default=5,
         help="Sample from top k tokens during sampling decoding"
+    )
+    parser.add_argument(
+        "--kg",
+        choices=["wikidata", "freebase", "dbpedia"],
+        default="wikidata",
+        help="knowledge graph to use"
     )
     parser.add_argument(
         "--entity-index",

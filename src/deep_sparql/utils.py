@@ -1,7 +1,7 @@
 import re
 import collections
 import requests
-from typing import Dict, List, Callable, Any, Tuple
+from typing import Dict, List, Callable, Any, Tuple, Optional
 
 from tqdm import tqdm
 
@@ -11,15 +11,22 @@ from text_correction_utils.api.table import generate_table
 SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
 WHERE_REGEX = r"WHERE\s*{(.*)}"
 
-WD_ENT_URL = "http://www.wikidata.org/entity/"
-WD_PROP_URL = "http://www.wikidata.org/prop/direct/"
-RDFS_URL = "http://www.w3.org/2000/01/rdf-schema#"
-WD_QLEVER_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
-
 SPARQL_PREFIX = "Generate SPARQL"
 
+QLEVER_URLS = {
+    "wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
+    "dbpedia": "https://qlever.cs.uni-freiburg.de/api/dbpedia",
+    "freebase": "https://qlever.cs.uni-freiburg.de/api/freebase",
+}
 
-def load_wikidata_index(
+KNOWLEDGE_GRAPHS = {
+    "wikidata": "[WIKIDATA]",
+    "dbpedia": "[DBPEDIA]",
+    "freebase": "[FREEBASE]",
+}
+
+
+def load_kg_index(
     path: str,
     progress: bool = True
 ) -> Tuple[Dict[str, List[str]], Dict[str, str]]:
@@ -30,7 +37,7 @@ def load_wikidata_index(
         for line in tqdm(
             f,
             total=num_lines,
-            desc="loading wikidata index",
+            desc="loading kg index",
             disable=not progress,
             leave=False
         ):
@@ -168,11 +175,25 @@ def postprocess_output(
 
 def wikidata_prefixes() -> List[str]:
     return [
-        f"PREFIX wd: <{WD_ENT_URL}>",
-        f"PREFIX wdt: <{WD_PROP_URL}>",
+        "PREFIX wd: <http://www.wikidata.org/entity/>",
+        "PREFIX wdt: <http://www.wikidata.org/prop/direct/>",
         "PREFIX p: <http://www.wikidata.org/prop/>",
         "PREFIX ps: <http://www.wikidata.org/prop/statement/>",
         "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
+    ]
+
+
+def freebase_prefixes() -> List[str]:
+    return [
+        "PREFIX fb: <http://rdf.freebase.com/ns/>",
+    ]
+
+
+def dbpedia_prefixes() -> List[str]:
+    return [
+        "PREFIX dbo: <http://dbpedia.org/ontology/>",
+        "PREFIX dbp: <http://dbpedia.org/property/>",
+        "PREFIX dbr: <http://dbpedia.org/resource/>",
     ]
 
 
@@ -193,81 +214,159 @@ def prepare_sparql_query(
     return f"{prefix} {s}"
 
 
-QLEVER_RESULT = List[Dict[str, Any]]
+class SPARQLRecord:
+    def __init__(
+        self,
+        value: str,
+        data_type: str,
+        label: Optional[str] = None
+    ):
+        self.value = value
+        self.data_type = data_type
+        self.label = label
+
+    def __repr__(self) -> str:
+        if self.data_type == "uri":
+            last = self.value.split("/")[-1]
+            if self.label is not None:
+                return f"{self.label} ({last})"
+            return last
+        else:
+            return self.label or self.value
+
+
+class SPARQLResult:
+    def __init__(
+        self,
+        vars: List[str],
+        results: List[Dict[str, SPARQLRecord]]
+    ):
+        self.vars = vars
+        self.results = results
+
+    def __len__(self) -> int:
+        return len(self.results)
+
+    def __repr__(self) -> str:
+        return f"SPARQLResult({self.vars}, {self.results})"
 
 
 def query_qlever(
     sparql_query: str,
-) -> QLEVER_RESULT:
-    response = requests.get(WD_QLEVER_URL, params={"query": sparql_query})
+    kg: str = "wikidata"
+) -> SPARQLResult:
+    response = requests.get(
+        QLEVER_URLS[kg],
+        params={"query": sparql_query}
+    )
+    json = response.json()
     if response.status_code != 200:
-        msg = response.json().get("exception", "unknown exception")
+        msg = json.get("exception", "unknown exception")
         raise RuntimeError(
             f"query {sparql_query} failed with "
             f"status code {response.status_code}:\n{msg}"
         )
-    return response.json()["results"]["bindings"]
-
-
-def generate_label_queries(
-    qlever_result: QLEVER_RESULT,
-    lang: str = "en",
-) -> Dict[str, str]:
-    if len(qlever_result) == 0:
-        return {}
-    values = collections.defaultdict(list)
-    # get entity vars
-    vars = set(
-        k
-        for k, v in qlever_result[0].items()
-        if v["type"] == "uri"
-        and len(re.findall(f"^{WD_ENT_URL}Q\\d+$", v["value"])) > 0
-    )
-    # collect values for each variable referring to entities
-    for result in qlever_result:
+    vars = json["head"]["vars"]
+    results = []
+    for binding in json["results"]["bindings"]:
+        result = {}
         for var in vars:
-            values[var].append(result[var]["value"])
-    # convert values to label queries
-    queries = {}
-    for var, val in values.items():
-        val_str = " ".join(f"wd:{v.split('/')[-1]}" for v in val)
-        query = f"PREFIX wd: <{WD_ENT_URL}> " \
-            f"PREFIX rdfs: <{RDFS_URL}> " \
-            f"SELECT ?{var}Label " \
-            "WHERE { " \
-            f"VALUES ?{var} {{ {val_str} }} " \
-            f"OPTIONAL {{ ?{var} rdfs:label ?{var}Label " \
-            f"FILTER(LANG(?{var}Label) = \"{lang}\") " \
-            "} }"
-        queries[f"{var}Label"] = query
-    return queries
+            if var not in binding:
+                continue
+            value = binding[var]
+            result[var] = SPARQLRecord(
+                value["value"],
+                value["type"]
+            )
+        results.append(result)
+    return SPARQLResult(vars, results)
+
+
+PREFIX_REGEX = re.compile(
+    r"(prefix\s+\S+:\s*<.+>)",
+    flags=re.IGNORECASE | re.DOTALL
+)
+
+
+def add_labels(
+    result: SPARQLResult,
+    sparql: str,
+    lang: str = "en",
+    kg: str = "wikidata"
+):
+    if kg == "wikidata":
+        ent_url = "http://www.wikidata.org/entity/"
+        ent_re = re.compile(f"^{ent_url}Q\\d+$")
+    elif kg == "freebase":
+        ent_url = "http://rdf.freebase.com/ns/"
+        ent_re = re.compile(f"^{ent_url}.+$")
+    elif kg == "dbpedia":
+        ent_url = "http://dbpedia.org/resource/"
+        ent_re = re.compile(f"^{ent_url}.+$")
+    else:
+        raise RuntimeError(f"unknown kg {kg}")
+
+    # get vars that refer to entities
+    if len(result) > 0:
+        vars = [
+            var
+            for var in result.vars
+            if (
+                var in result.results[0]
+                and ent_re.match(result.results[0][var].value) is not None
+            )
+        ]
+    else:
+        vars = []
+
+    label_vars = [f"{var}Label" for var in vars]
+    label_var_str = " ".join("?" + var for var in label_vars)
+    label_filter = " ".join(
+        f"OPTIONAL {{ ?{var} rdfs:label ?{var}Label . "
+        f"FILTER(LANG(?{var}Label) = \"{lang}\") }}"
+        for var in vars
+    )
+
+    prefix = " ".join(
+        m.group(1)
+        for m in re.finditer(PREFIX_REGEX, sparql)
+    )
+    sub_sparql = re.sub(PREFIX_REGEX, "", sparql).strip()
+
+    query = "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> " \
+        f"{prefix} " \
+        f"SELECT {label_var_str} WHERE {{ " \
+        f"{{ {sub_sparql} }} {label_filter} }} "
+
+    label_result = query_qlever(query, kg)
+    for i, record in enumerate(label_result.results):
+        for var, l_var in zip(vars, label_vars):
+            if l_var not in record:
+                continue
+            result.results[i][var].label = record[l_var].value
 
 
 def format_qlever_result(
-    result: List[Dict[str, Any]],
+    result: SPARQLResult,
     max_column_width: int = 80,
 ) -> str:
     if len(result) == 0:
         return "no results"
 
-    columns = sorted(result[0].keys())
-    if len(columns) == 0:
+    if len(result.vars) == 0:
         return "no bindings"
 
     data = []
-    for obj in result:
-        if obj is None:
-            data.append(["-"] * len(columns))
-            continue
+    for record in result.results:
         data.append([
-            obj[col]["value"] if col in obj else "-"
-            for col in columns
+            str(record[var]) if var in record else "-"
+            for var in result.vars
         ])
 
     return generate_table(
-        headers=[columns],
+        headers=[result.vars],
         data=data,
-        alignments=["left"] * len(columns),
+        alignments=["left"] * len(result.vars),
         max_column_width=max_column_width,
     )
 
@@ -320,12 +419,16 @@ def format_examples(
 def format_input(
     question: str,
     examples: List[str],
+    kg: Optional[str] = None,
     decoder_only: bool = False
 ) -> str:
+    pfx = f"{SPARQL_PREFIX}"
+    if kg is not None:
+        pfx = f"{KNOWLEDGE_GRAPHS[kg]} {pfx}"
     if len(examples) == 0:
-        return f"{SPARQL_PREFIX} >>>> {question}" + " >> " * decoder_only
+        return f"{pfx} >>>> {question}" + " >> " * decoder_only
     return (
-        f"{SPARQL_PREFIX} >>>> "
+        f"{pfx} >>>> "
         + format_examples(examples)
         + f" >>>> {question}"
         + " >> " * decoder_only
