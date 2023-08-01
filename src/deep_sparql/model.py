@@ -58,6 +58,7 @@ class PretrainedEncoder(Model):
             self.model = BertModel.from_pretrained(name)
         else:
             self.model = RobertaModel.from_pretrained(name)
+        self.max_length = 512
 
     def forward(
         self,
@@ -74,8 +75,10 @@ class PretrainedEncoder(Model):
         padding_mask: torch.Tensor,
     ) -> torch.Tensor:
         output = self.model(
-            input_ids=token_ids,
-            attention_mask=torch.logical_not(padding_mask).to(torch.float),
+            input_ids=token_ids[:, :self.max_length],
+            attention_mask=torch.logical_not(
+                padding_mask[:, :self.max_length]
+            ).to(torch.float),
         )  # type: ignore
         return output.last_hidden_state
 

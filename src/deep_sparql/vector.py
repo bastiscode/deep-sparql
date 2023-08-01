@@ -10,7 +10,6 @@ from tqdm import tqdm
 from text_correction_utils import tokenization, data, io
 
 from deep_sparql.model import PRETRAINED_ENCODERS, PretrainedEncoder
-from deep_sparql.utils import format_examples
 
 
 class Index:
