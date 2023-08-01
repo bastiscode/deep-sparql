@@ -74,4 +74,7 @@ prefix-indices:
 indices: prefix-indices example-indices
 
 .PHONY: all
-all: data indices
+all:
+	make data
+	make indices
+	make data WD_EX=data/example-index/wikidata-$(MODEL)
