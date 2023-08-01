@@ -66,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--example-index", type=str, default=None)
     parser.add_argument("--max-num-examples", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--max-length", type=int, default=256)
     return parser.parse_args()
 
 
@@ -410,6 +411,10 @@ def prepare(args: argparse.Namespace):
                     ).strip() if has_sparql else None,
                     sample.result if not has_sparql else None
                 )
+                # skip too long questions
+                if len(sample.question) > args.max_length:
+                    num_invalid += 1
+                    continue
                 # test sets always contain full sparqls targets
                 # (with prefix and original kg ids) for evaluation
                 if split == "test" or not has_sparql:
