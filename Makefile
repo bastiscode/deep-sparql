@@ -56,24 +56,22 @@ example-indices:
 	--output data/example-index/wikidata-$(MODEL) \
 	--model $(MODEL) --batch-size $(BATCH_SIZE) --overwrite
 
-.PHONY: wd-indices
-wd-indices: wd-nl-index wd-prefix-index wd-vec-index
-
-.PHONY: wd-nl-index
-wd-nl-index:
-	@echo "Creating knowledge graph natural language indices"
-	@make -C third_party/knowledge-graph-natural-language-index index \
-	OUT_DIR=data/kg-index
-
-.PHONY: wd-prefix-index
-wd-prefix-index:
-	@echo "Creating Wikidata prefix indices"
+.PHONY: prefix-indices
+prefix-indices:
+	@echo "Creating wikidata prefix indices"
 	@cd third_party/text-correction-utils && \
 	python scripts/create_prefix_vec.py \
-	--file ${SPARQL}/kg-index/wikidata-properties-index.tsv \
-	--out ${SPARQL}/prefix-index/wikidata-properties.bin
+	--file data/kg-index/wikidata-properties-index.tsv \
+	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
+	--out data/prefix-index/wikidata-t5-properties.bin
 	@cd third_party/text-correction-utils && \
 	python scripts/create_prefix_vec.py \
-	--file ${SPARQL}/kg-index/wikidata-entities-index.tsv \
-	--out ${SPARQL}/prefix-index/wikidata-entities.bin
+	--file data/kg-index/wikidata-entities-index.tsv \
+	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
+	--out data/prefix-index/wikidata-t5-entities.bin
 
+.PHONY: indices
+indices: prefix-indices example-indices
+
+.PHONY: all
+all: data indices
