@@ -59,35 +59,53 @@ class SPARQLCli(TextCorrectionCli):
             beam_width=self.args.beam_width,
             sample_top_k=self.args.sample_top_k
         )
+
         index_dir = os.environ.get("SPARQL_PREFIX_INDEX", None)
+        if index_dir is not None:
+            entity_index = os.path.join(
+                index_dir,
+                f"{self.args.kg}-entities.bin"
+            )
+            property_index = os.path.join(
+                index_dir,
+                f"{self.args.kg}-properties.bin"
+            )
+        else:
+            entity_index = None
+            property_index = None
         if (
             self.args.entity_index is None
-            and index_dir is not None
-            and os.path.exists(os.path.join(index_dir, "entities.bin"))
+            and entity_index is not None
+            and os.path.exists(entity_index)
         ):
-            self.args.entity_index = os.path.join(index_dir, "entities.bin")
+            self.args.entity_index = entity_index
         if (
             self.args.property_index is None
-            and index_dir is not None
-            and os.path.exists(os.path.join(index_dir, "properties.bin"))
+            and property_index is not None
+            and os.path.exists(property_index)
         ):
-            self.args.property_index = os.path.join(
-                index_dir,
-                "properties.bin"
-            )
+            self.args.property_index = property_index
+
         example_dir = os.environ.get("SPARQL_EXAMPLE_INDEX", None)
+        if example_dir is not None:
+            example_index = os.path.join(
+                example_dir,
+                self.args.kg,
+            )
+        else:
+            example_index = None
         if (
             self.args.example_index is None
-            and example_dir is not None
-            and os.path.exists(example_dir)
+            and example_index is not None
+            and os.path.exists(example_index)
         ):
-            self.args.example_index = example_dir
+            self.args.example_index = example_index
+
         cor.set_indices(
             self.args.entity_index,
             self.args.property_index,
             self.args.example_index
         )
-        self.indices = cor.get_indices()
         return cor
 
     def correct_iter(
