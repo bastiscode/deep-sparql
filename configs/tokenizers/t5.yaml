@@ -1,6 +1,6 @@
 tokenize:
   type: huggingface
-  name: t5-small
+  name: env(T5_MODEL:t5-small)
 special:
   tokens: 
     - <pad>
