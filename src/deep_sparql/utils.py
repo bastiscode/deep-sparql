@@ -28,7 +28,7 @@ KNOWLEDGE_GRAPHS = {
 
 def load_kg_index(
     path: str,
-    progress: bool = True
+    progress: bool = False
 ) -> Tuple[Dict[str, List[str]], Dict[str, str]]:
     num_lines, _ = text.file_size(path)
     with open(path, "r", encoding="utf8") as f:

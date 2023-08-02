@@ -192,10 +192,9 @@ def get_nearest_neighbors(
     index: Index,
     n: int,
     batch_size: int = 16,
-    progress: bool = True,
-    sample: bool = False
-) -> List[List[str]]:
-    nn_strs = []
+    progress: bool = False
+) -> List[List[Tuple[str, float]]]:
+    nns = []
     for i in tqdm(
         range(0, len(questions), batch_size),
         desc="getting nearest neighbors",
@@ -205,15 +204,7 @@ def get_nearest_neighbors(
     ):
         neighbors = index.query(
             questions[i:i + batch_size],
-            n + 1 if sample else n,
+            n
         )
-        for nns in neighbors:
-            nns = [
-                ex
-                for ex, dist in nns
-                if not sample or dist > 0.0
-            ]
-            if sample:
-                nns = nns[:random.randint(0, n)]
-            nn_strs.append(nns)
-    return nn_strs
+        nns.extend(neighbors)
+    return nns

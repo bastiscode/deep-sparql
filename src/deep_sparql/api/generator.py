@@ -776,15 +776,13 @@ class SPARQLGenerator(corrector.TextCorrector):
                 questions,
                 self._example_index,
                 n_examples,
-                batch_size=batch_size,
-                progress=False,
-                sample=False
+                batch_size,
             )
         else:
             examples = [[]] * len(questions)
 
         return [
-            format_input(q, ex)
+            format_input(q, [ex_str for ex_str, _ in ex])
             for q, ex in zip(questions, examples)
         ]
 

@@ -1,4 +1,5 @@
 import argparse
+import random
 import os
 import re
 import json
@@ -67,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-num-examples", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--max-length", type=int, default=256)
+    parser.add_argument("--progress", action="store_true")
     return parser.parse_args()
 
 
@@ -329,12 +331,18 @@ def prepare(args: argparse.Namespace):
     kg, data = load_data(args)
 
     if args.entity_index is not None:
-        entity_index, entity_redir = load_kg_index(args.entity_index)
+        entity_index, entity_redir = load_kg_index(
+            args.entity_index,
+            args.progress
+        )
     else:
         entity_index = entity_redir = None
 
     if args.property_index is not None:
-        property_index, _ = load_kg_index(args.property_index)
+        property_index, _ = load_kg_index(
+            args.property_index,
+            args.progress
+        )
     else:
         property_index = None
 
@@ -353,16 +361,20 @@ def prepare(args: argparse.Namespace):
     if has_examples:
         assert example_index is not None
         split_examples = {
-            split: get_nearest_neighbors(
-                [
-                    sample.question
-                    for sample in data.get(split, [])
-                ],
-                example_index,
-                args.max_num_examples,
-                args.batch_size,
-                sample=split == "train"
-            )
+            split: [
+                # filter out exact question matches
+                # which can happen for the training split
+                [ex for ex, dist in nns if dist > 0.0]
+                for nns in get_nearest_neighbors(
+                    [
+                        sample.question
+                        for sample in data.get(split, [])
+                    ],
+                    example_index,
+                    args.max_num_examples * (1 + (split == "train")) + 1,
+                    args.batch_size,
+                    progress=args.progress
+                )]
             for split in ["train", "val", "test"]
         }
     else:
@@ -393,7 +405,8 @@ def prepare(args: argparse.Namespace):
             for i, sample in enumerate(tqdm(
                 samples,
                 desc=f"processing and writing {split} samples",
-                leave=False
+                leave=False,
+                disable=not args.progress
             )):
                 # clean sample
                 sample = Sample(
@@ -420,7 +433,7 @@ def prepare(args: argparse.Namespace):
                 if split == "test" or not has_sparql:
                     inf.write(format_input(
                         sample.question,
-                        examples[i],
+                        examples[i][:args.max_num_examples],
                         kg
                     ) + "\n")
                     if has_sparql:
@@ -454,9 +467,18 @@ def prepare(args: argparse.Namespace):
                     num_invalid += 1
                     continue
                 for sparql in sparqls:
+                    if split == "train":
+                        indices = list(range(len(examples[i])))
+                        random.shuffle(indices)
+                        exs = [
+                            examples[i][j]
+                            for j in sorted(indices[:args.max_num_examples])
+                        ]
+                    else:
+                        exs = examples[i][:args.max_num_examples]
                     inf.write(format_input(
                         sample.question,
-                        examples[i],
+                        exs,
                         kg
                     ) + "\n")
                     tf.write(sparql + "\n")
