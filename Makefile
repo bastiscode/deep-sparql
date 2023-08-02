@@ -10,35 +10,40 @@ data:
 	--output data/wikidata-simplequestions \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
-	--example-index $(WD_EX)
+	--example-index $(WD_EX) \
+	--progress
 	@echo "Preparing lc quad wikidata"
 	@python scripts/prepare_data.py \
 	--lc-quad2-wikidata third_party/KGQA-datasets/lcquad_v2 \
 	--output data/wikidata-lcquad2 \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
-	--example-index $(WD_EX)
+	--example-index $(WD_EX) \
+	--progress
 	@echo "Preparing qald 10"
 	@python scripts/prepare_data.py \
 	--qald-10 third_party/KGQA-datasets/qald/qald-10.py \
 	--output data/wikidata-qald10 \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
-	--example-index $(WD_EX)
+	--example-index $(WD_EX) \
+	--progress
 	@echo "Preparing mcwq"
 	@python scripts/prepare_data.py \
 	--mcwq data/raw/mcwq \
 	--output data/wikidata-mcwq \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
-	--example-index $(WD_EX)
+	--example-index $(WD_EX) \
+	--progress
 	@echo "Preparing qa wiki"
 	@python scripts/prepare_data.py \
 	--qa-wiki data/raw/qa_wiki/qa_wiki.tsv \
 	--output data/wikidata-qa-wiki \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
-	--example-index $(WD_EX)
+	--example-index $(WD_EX) \
+	--progress
 
 MODEL=roberta-base
 BATCH_SIZE=32
