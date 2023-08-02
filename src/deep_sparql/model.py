@@ -188,10 +188,15 @@ class PretrainedDecoder(Model):
         **kwargs: Any
     ):
         super().__init__()
-        assert name in {"llama"}
+        assert name in {
+            "llama-2-7b",
+            "llama-2-30b",
+            "llama-2-70b",
+        }
 
-        assert "llama_path" in kwargs
-        self.model = LlamaForCausalLM.from_pretrained(kwargs["llama_path"])
+        self.model = LlamaForCausalLM.from_pretrained(
+            f"meta-llama/{name.capitalize()}-hf"
+        )
 
     def forward(
         self,

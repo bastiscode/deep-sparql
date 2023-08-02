@@ -1,0 +1,60 @@
+experiment:
+  name: env(LLAMA_MODEL:llama-7b)-wikidata
+
+seed: 22
+
+input_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+output_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+
+model: file(models/llama.yaml)
+
+train:
+  mixed_precision: env(MIXED_PRECISION:true)
+  mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
+  clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
+  num_epochs: env(NUM_EPOCHS:1)
+  eval_interval: eval(1 / env(EVAL_PER_EPOCH:2))
+  log_interval: eval(1 / env(LOG_PER_EPOCH:20))
+  step_interval: eval(1 / env(STEP_PER_EPOCH:1000))
+  loss:
+    type: sequence
+    loss:
+      type: cross_entropy
+      ignore_index: -1
+      label_smoothing: env(LABEL_SMOOTHING:0.0)
+  optimizer:
+    type: adamw
+    lr: env(LR:0.00005)
+    weight_decay: env(WEIGHT_DECAY:0.01)
+  lr_scheduler:
+    type: multi_step_with_warmup
+    warmup_steps: env(WARMUP_STEPS:0.01)
+    steps: [0.9]
+    factors: [0.1]
+  metrics:
+    text_generation:
+      max_items: 8
+  data:
+    strategy: weighted
+    shuffle: true
+    sort: env(SORT:false)
+    limit: env(TRAIN_LIMIT:null)
+    max_length: env(MAX_LENGTH:512)
+    buffer_size: env(BUFFER_SIZE:512)
+    prefetch_factor: env(PREFETCH_FACTOR:512)
+    num_threads: eval(env(THREADS:None) or len(os.sched_getaffinity(0)) // 2)
+    # batch_limit: eval(env(MAX_LENGTH:512) * env(BATCH_LIMIT:8))
+    batch_limit: env(BATCH_LIMIT:8)
+    batch_limit_type: env(BATCH_LIMIT_TYPE:padded_item_size)
+    pipeline:
+      preprocessing: file(preprocessings/sparql_gen.yaml)
+      tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+      labeling:
+        type: generation
+        tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+      postprocessing: file(postprocessings/clip.yaml)
+    sources: 
+      - file(data/lcquad.yaml)
+      - file(data/qald10.yaml)
+      - file(data/wikidata_simplequestions.yaml)
+    val: env(VAL_LIMIT:500)
