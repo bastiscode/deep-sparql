@@ -1,3 +1,3 @@
 type: file_pair
-input_path: data/datasets/wikidata-simplequestions/env(WD_SIMPLE_INPUT:train_input).txt
-target_path: data/datasets/wikidata-simplequestions/env(WD_SIMPLE_TARGET:train_sparql).txt
+input_path: data/wikidata-simplequestions/env(WD_SIMPLE_INPUT:train_input).txt
+target_path: data/wikidata-simplequestions/env(WD_SIMPLE_TARGET:train_sparql).txt
