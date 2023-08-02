@@ -67,6 +67,10 @@ prefix-indices:
 	--file data/kg-index/wikidata-entities-index.tsv \
 	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
 	--out data/prefix-index/wikidata-t5-entities.bin
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
+	--file data/kg-index/wikidata-entities-small-index.tsv \
+	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
+	--out data/prefix-index/wikidata-t5-entities-small.bin
 
 .PHONY: indices
 indices: prefix-indices example-indices
