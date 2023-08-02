@@ -59,13 +59,11 @@ example-indices:
 .PHONY: prefix-indices
 prefix-indices:
 	@echo "Creating wikidata prefix indices"
-	@cd third_party/text-correction-utils && \
-	python scripts/create_prefix_vec.py \
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-properties-index.tsv \
 	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
 	--out data/prefix-index/wikidata-t5-properties.bin
-	@cd third_party/text-correction-utils && \
-	python scripts/create_prefix_vec.py \
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-entities-index.tsv \
 	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
 	--out data/prefix-index/wikidata-t5-entities.bin
