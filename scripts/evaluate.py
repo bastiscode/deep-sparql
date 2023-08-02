@@ -24,14 +24,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_entities(q: str) -> Optional[Set[str]]:
+def get_entities(q: str) -> Optional[Set[Tuple[str, ...]]]:
     try:
         result = query_qlever(q)
         if len(result) == 0:
             return set()
-        vars = list(result[0].keys())
-        assert len(vars) == 1, "expected only one variable"
-        return set(r[vars[0]]["value"] for r in result)
+        return set(
+            tuple(r[var].value if var in r else "" for var in result.vars)
+            for r in result.results
+        )
     except Exception:
         return None
 

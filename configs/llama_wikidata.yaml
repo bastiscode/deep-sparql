@@ -50,8 +50,7 @@ train:
       preprocessing: file(preprocessings/sparql_gen.yaml)
       tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
       labeling:
-        type: generation
-        tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+        type: none
       postprocessing: file(postprocessings/clip.yaml)
     sources: 
       - file(data/lcquad.yaml)
