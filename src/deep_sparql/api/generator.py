@@ -183,8 +183,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         device: Union[str, int]
     ) -> None:
         super().__init__(model_dir, device)
-        precision = self.cfg["train"].get("mixed_precision_dtype", "fp32")
-        self.set_precision(precision)
         self.logger.debug(f"loaded model config:\n{self.cfg['model']}")
         self.logger.info(
             f"running {self.name} SPARQL generator "
