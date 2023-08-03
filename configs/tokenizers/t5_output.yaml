@@ -2,7 +2,7 @@
 # as start of sequence token during decoding
 tokenize:
   type: huggingface
-  name: env(T5_MODEL:t5-small)
+  name: relpath(t5/tokenizer.json)
 special:
   tokens: 
     - <pad>
