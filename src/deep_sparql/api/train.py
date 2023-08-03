@@ -74,9 +74,11 @@ class SPARQLGenerationTrainer(Trainer):
         elif self.cfg["model"]["type"] == "pretrained_decoder":
             # shift inputs for decoder only models
             labels = inputs["token_ids"][..., 1:]
+            for i in range(len(inputs["lengths"])):
+                inputs["lengths"][i] -= 1
+                labels[i, inputs["lengths"][i]:] = -1
             inputs["token_ids"] = inputs["token_ids"][..., :-1]
             inputs["padding_mask"] = inputs["padding_mask"][..., :-1]
-            inputs["lengths"] = [length - 1 for length in inputs["lengths"]]
 
         else:
             raise RuntimeError(
