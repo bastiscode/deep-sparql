@@ -770,6 +770,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         questions: List[str],
         n_examples: int = 3,
         batch_size: int = 16,
+        kg: Optional[str] = None
     ) -> List[str]:
         if self._example_index is not None and n_examples > 0:
             examples = vector.get_nearest_neighbors(
@@ -782,7 +783,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             examples = [[]] * len(questions)
 
         return [
-            format_input(q, [ex_str for ex_str, _ in ex])
+            format_input(q, [ex_str for ex_str, _ in ex], kg)
             for q, ex in zip(questions, examples)
         ]
 
@@ -796,12 +797,13 @@ class SPARQLGenerator(corrector.TextCorrector):
         raw: bool = False,
         show_progress: bool = False,
         n_examples: int = 3,
+        kg: Optional[str] = None
     ) -> Union[Iterator[str], Iterator[data.InferenceData]]:
         loader = self._get_loader(
             (
                 data.InferenceData(
                     s if raw else
-                    self.prepare_questions([s], n_examples)[0],
+                    self.prepare_questions([s], n_examples, kg=kg)[0],
                     language=l
                 )
                 for s, l in iter

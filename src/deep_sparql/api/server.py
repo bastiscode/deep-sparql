@@ -8,7 +8,7 @@ from text_correction_utils.api.server import TextCorrectionServer, Error
 from text_correction_utils.api.utils import ProgressIterator
 
 from deep_sparql.api.generator import SPARQLGenerator
-from deep_sparql.utils import SPARQL_PREFIX, prepare_sparql_query
+from deep_sparql.utils import prepare_sparql_query
 
 
 class SPARQLServer(TextCorrectionServer):
@@ -76,6 +76,7 @@ class SPARQLServer(TextCorrectionServer):
             search_strategy = json.get("search_strategy", "greedy")
             beam_width = json.get("beam_width", 5)
             n_examples = json.get("num_examples", 3)
+            kg = json.get("kg", "wikidata")
 
             try:
                 with self.text_corrector(json["model"]) as cor:
@@ -90,6 +91,7 @@ class SPARQLServer(TextCorrectionServer):
                     questions = cor.prepare_questions(
                         [q.strip() for q in json["questions"]],
                         n_examples,
+                        kg
                     )
                     iter = ProgressIterator(
                         ((q, None) for q in questions),

@@ -118,7 +118,8 @@ class SPARQLCli(TextCorrectionCli):
                 (
                     corrector.prepare_questions(
                         [data.text],
-                        self.args.n_examples
+                        self.args.n_examples,
+                        self.args.kg
                     )[0],
                     data.language
                 )
