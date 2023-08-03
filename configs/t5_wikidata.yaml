@@ -56,5 +56,6 @@ train:
       - file(data/lcquad.yaml)
       - file(data/mcwq.yaml)
       - file(data/qald10.yaml)
+      - file(data/qawiki.yaml)
       - file(data/wikidata_simplequestions.yaml)
     val: env(VAL_LIMIT:500)
