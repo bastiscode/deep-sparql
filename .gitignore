@@ -129,6 +129,6 @@ dmypy.json
 .pyre/
 
 # Custom
-third_party
-experiments
-data
+/third_party
+/experiments
+/data
