@@ -91,7 +91,7 @@ class SPARQLServer(TextCorrectionServer):
                     questions = cor.prepare_questions(
                         [q.strip() for q in json["questions"]],
                         n_examples,
-                        kg
+                        kg=kg
                     )
                     iter = ProgressIterator(
                         ((q, None) for q in questions),
