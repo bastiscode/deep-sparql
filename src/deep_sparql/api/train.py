@@ -3,11 +3,20 @@ from typing import Dict, Any, Tuple
 
 import torch
 from torch import nn
+from peft import (
+    PeftConfig,
+    prepare_model_for_int8_training,
+    get_peft_model
+)
 
 from text_correction_utils.api.trainer import Trainer
 from text_correction_utils import tokenization, data, api
 
-from deep_sparql.model import model_from_config
+from deep_sparql.model import (
+    PretrainedDecoder,
+    PretrainedEncoderDecoder,
+    model_from_config
+)
 
 
 class SPARQLGenerationTrainer(Trainer):
@@ -27,6 +36,26 @@ class SPARQLGenerationTrainer(Trainer):
             input_tokenizer,
             output_tokenizer
         )
+
+    @classmethod
+    def _prepare_peft(
+        cls,
+        model: nn.Module,
+        peft_cfg: PeftConfig,
+        use8_bit: bool = False
+    ) -> nn.Module:
+        if isinstance(model, PretrainedEncoderDecoder) or \
+                isinstance(model, PretrainedDecoder):
+            if use8_bit:
+                model.model = prepare_model_for_int8_training(
+                    model.model
+                )
+            model.model = get_peft_model(model.model, peft_cfg)
+        else:
+            raise RuntimeError(
+                "peft is only supported for pretrained models"
+            )
+        return model
 
     def _prepare_batch(
         self,

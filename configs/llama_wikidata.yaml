@@ -9,6 +9,8 @@ output_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama).yaml)
 model: file(models/llama.yaml)
 
 train:
+  peft: file(peft/env(PEFT:none).yaml)
+  peft_task: lm
   mixed_precision: env(MIXED_PRECISION:true)
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)

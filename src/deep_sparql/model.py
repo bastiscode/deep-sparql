@@ -111,28 +111,24 @@ class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
         name: str,
-        vocab_size: int,
+        use_8bit: bool = False
     ):
         super().__init__()
         assert name in PRETRAINED_ENCODER_DECODERS, "unknown model"
         if name.startswith("mt5"):
             self.model = MT5ForConditionalGeneration.from_pretrained(
-                f"google/{name}"
+                f"google/{name}",
+                load_in_8bit=use_8bit
             )
         elif name.startswith("t5"):
-            self.model = T5ForConditionalGeneration.from_pretrained(name)
+            self.model = T5ForConditionalGeneration.from_pretrained(
+                name,
+                load_in_8bit=use_8bit
+            )
         else:
             self.model = T5ForConditionalGeneration.from_pretrained(
-                f"google/{name}"
-            )
-
-        assert isinstance(self.model, PreTrainedModel)
-        num_emb, _ = self.model.get_input_embeddings().weight.shape
-        if vocab_size > num_emb:
-            raise NotImplementedError(
-                f"vocab size {vocab_size:,} is larger than number of "
-                f"embeddings {num_emb:,}, resizing of embedding not "
-                "yet implemented"
+                f"google/{name}",
+                load_in_8bit=use_8bit
             )
 
     def forward(
@@ -184,8 +180,7 @@ class PretrainedDecoder(Model):
     def __init__(
         self,
         name: str,
-        vocab_size: int,
-        **kwargs: Any
+        use_8bit: bool = False
     ):
         super().__init__()
         assert name in {
@@ -195,7 +190,8 @@ class PretrainedDecoder(Model):
         }
 
         self.model = LlamaForCausalLM.from_pretrained(
-            f"meta-llama/{name.capitalize()}-hf"
+            f"meta-llama/{name.capitalize()}-hf",
+            load_in_8bit=use_8bit
         )
 
     def forward(
@@ -225,14 +221,8 @@ def model_from_config(
     if model_type == "pretrained_encoder_decoder":
         assert output_tokenizer is not None
         assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
-        return PretrainedEncoderDecoder(
-            **cfg,
-            vocab_size=input_tokenizer.vocab_size(),
-        )
+        return PretrainedEncoderDecoder(**cfg)
     elif model_type == "pretrained_decoder":
-        return PretrainedDecoder(
-            **cfg,
-            vocab_size=input_tokenizer.vocab_size(),
-        )
+        return PretrainedDecoder(**cfg)
     else:
         raise ValueError(f"unknown model type {model_type}")

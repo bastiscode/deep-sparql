@@ -1,0 +1,10 @@
+type: ia3
+use_8bit: env(USE_8BIT:false)
+target_modules: 
+  - SelfAttention.k
+  - SelfAttention.v
+  - EncDecAttention.k
+  - EncDecAttention.v
+  - DenseReluDense.wo
+feedforward_modules:
+  - DenseReluDense.wo
