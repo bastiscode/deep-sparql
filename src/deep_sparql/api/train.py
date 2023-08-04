@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from peft import (
     PeftConfig,
-    prepare_model_for_int8_training,
+    prepare_model_for_kbit_training,
     get_peft_model
 )
 
@@ -47,7 +47,7 @@ class SPARQLGenerationTrainer(Trainer):
         if isinstance(model, PretrainedEncoderDecoder) or \
                 isinstance(model, PretrainedDecoder):
             if use8_bit:
-                model.model = prepare_model_for_int8_training(
+                model.model = prepare_model_for_kbit_training(
                     model.model
                 )
             model.model = get_peft_model(model.model, peft_cfg)
