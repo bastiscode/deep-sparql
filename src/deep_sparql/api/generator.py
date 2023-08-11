@@ -243,6 +243,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._strategy = "greedy"
         self._beam_width = 5
         self._sample_top_k = 5
+        self._use_cache = True
         assert self._eos_token_id is not None
 
         self._entity_index = None
@@ -505,7 +506,8 @@ class SPARQLGenerator(corrector.TextCorrector):
                 token_ids,
                 kwargs["memory"],
                 kwargs["memory_padding_mask"],
-                kwargs.get("kv_cache", None)
+                kwargs.get("kv_cache", None),
+                self._use_cache
             )
             return dec, {"kv_cache": cache}
 
@@ -518,15 +520,25 @@ class SPARQLGenerator(corrector.TextCorrector):
                 "memory_padding_mask": kwargs["memory_padding_mask"][mask],
             }
             if "kv_cache" in kwargs:
-                selected["kv_cache"] = kwargs["kv_cache"][mask]
+                selected["kv_cache"] = [
+                    kwargs["kv_cache"][i]
+                    for i in mask.tolist()
+                ]
+            else:
+                selected["kv_cache"] = None
             return selected
 
         def _kwargs_update_fn(
             kwargs: Dict[str, Any],
             info: Dict[str, Any],
-            mask: torch.Tensor
+            mask: List[int]
         ) -> None:
-            pass
+            if "kv_cache" not in info:
+                return
+            kwargs["kv_cache"] = [
+                info["kv_cache"][i]
+                for i in mask
+            ]
 
         is_beam = self._strategy == "beam" and self._beam_width > 1
         is_sample = self._strategy == "sample" and self._sample_top_k > 1
@@ -612,12 +624,14 @@ class SPARQLGenerator(corrector.TextCorrector):
         self,
         strategy: str = "greedy",
         beam_width: int = 5,
-        sample_top_k: int = 5
+        sample_top_k: int = 5,
+        use_cache: bool = True
     ) -> None:
         assert strategy in ["greedy", "beam", "sample"]
         self._strategy = strategy
         self._beam_width = beam_width
         self._sample_top_k = sample_top_k
+        self._use_cache = use_cache
 
     def set_indices(
         self,

@@ -57,7 +57,8 @@ class SPARQLCli(TextCorrectionCli):
         cor.set_inference_options(
             strategy=self.args.search_strategy,
             beam_width=self.args.beam_width,
-            sample_top_k=self.args.sample_top_k
+            sample_top_k=self.args.sample_top_k,
+            use_cache=not self.args.no_kv_cache
         )
 
         index_dir = os.environ.get("SPARQL_PREFIX_INDEX", None)
@@ -180,6 +181,11 @@ def main():
         type=int,
         default=5,
         help="Sample from top k tokens during sampling decoding"
+    )
+    parser.add_argument(
+        "--no-kv-cache",
+        action="store_true",
+        help="Whether to use key and value caches during decoding"
     )
     parser.add_argument(
         "--kg",
