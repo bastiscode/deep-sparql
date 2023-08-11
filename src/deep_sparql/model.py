@@ -45,16 +45,12 @@ class PretrainedEncoder(Model):
     def __init__(
         self,
         name: str,
-        vocab_size: int,
     ):
         super().__init__()
         assert name in PRETRAINED_ENCODERS, "unknown model"
         self.name = name
         if name.startswith("t5"):
-            model = PretrainedEncoderDecoder(
-                name,
-                vocab_size=vocab_size
-            ).model
+            model = PretrainedEncoderDecoder(name).model
             assert isinstance(model, PreTrainedModel)
             self.model = model.encoder
         elif name.startswith("bert"):

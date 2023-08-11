@@ -1,6 +1,5 @@
 from typing import Iterable, Union, List, Tuple, Dict, Any
 import os
-import random
 
 import yaml
 import torch

@@ -1,7 +1,6 @@
 import re
-import collections
 import requests
-from typing import Dict, List, Callable, Any, Tuple, Optional
+from typing import Dict, List, Callable, Tuple, Optional
 
 from tqdm import tqdm
 
