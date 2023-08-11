@@ -178,7 +178,7 @@ class PretrainedEncoderDecoder(Model):
             input_ids=token_ids,
             past_key_values=self.kv_cache,
             use_cache=kv_cache,
-            encoder_outputs=memory,
+            encoder_outputs=(memory,),
             attention_mask=torch.logical_not(
                 memory_padding_mask
             ).to(torch.float),
