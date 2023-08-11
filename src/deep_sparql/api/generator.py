@@ -508,6 +508,8 @@ class SPARQLGenerator(corrector.TextCorrector):
                 kwargs.get("kv_cache", None)
             )
             print(len(cache), [len(c) for c in cache])
+            print([[c.shape for c in ch] for ch in cache])
+            print(dec.shape)
             return dec, {"kv_cache": cache}
 
         def _kwargs_select_fn(
