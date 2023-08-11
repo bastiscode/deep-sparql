@@ -133,7 +133,6 @@ class PretrainedEncoderDecoder(Model):
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
-        self.kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
 
     def forward(
         self,
@@ -163,21 +162,18 @@ class PretrainedEncoderDecoder(Model):
         )  # type: ignore
         return output.last_hidden_state
 
-    def clear_kv_cache(self) -> None:
-        self.kv_cache = None
-
     def decode(
         self,
         token_ids: torch.Tensor,
         memory: torch.Tensor,
         memory_padding_mask: torch.Tensor,
-        kv_cache: bool = True
-    ) -> torch.Tensor:
+        kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+    ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
         assert isinstance(self.model, PreTrainedModel)
         inputs = self.model.prepare_inputs_for_generation(
             input_ids=token_ids,
-            past_key_values=self.kv_cache,
-            use_cache=kv_cache,
+            past_key_values=kv_cache,
+            use_cache=kv_cache is not None,
             encoder_outputs=(memory,),
             attention_mask=torch.logical_not(
                 memory_padding_mask
@@ -185,9 +181,7 @@ class PretrainedEncoderDecoder(Model):
         )
         output = self.model(**inputs)
         assert isinstance(output, Seq2SeqLMOutput)
-        if kv_cache:
-            self.kv_cache = output.past_key_values
-        return output.logits
+        return output.logits, output.past_key_values  # type: ignore
 
 
 class PretrainedDecoder(Model):
@@ -207,7 +201,6 @@ class PretrainedDecoder(Model):
             f"meta-llama/{name.capitalize()}-hf",
             load_in_8bit=use_8bit
         )
-        self.kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
 
     def forward(
         self,
@@ -220,19 +213,17 @@ class PretrainedDecoder(Model):
     def decode(
         self,
         token_ids: torch.Tensor,
-        kv_cache: Optional[bool] = True
-    ) -> torch.Tensor:
+        kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
+    ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
         assert isinstance(self.model, PreTrainedModel)
         inputs = self.model.prepare_inputs_for_generation(
             input_ids=token_ids,
-            past_key_values=self.kv_cache,
-            use_cache=kv_cache,
+            past_key_values=kv_cache,
+            use_cache=kv_cache is not None,
         )
         output = self.model(**inputs)
         assert isinstance(output, CausalLMOutputWithPast)
-        if kv_cache:
-            self.kv_cache = output.past_key_values
-        return output.logits
+        return output.logits, output.past_key_values  # type: ignore
 
 
 def model_from_config(

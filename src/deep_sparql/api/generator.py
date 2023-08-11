@@ -495,27 +495,39 @@ class SPARQLGenerator(corrector.TextCorrector):
         enc = self.model.encode(**inputs)
 
         # decode fn gets in token ids and additional kwargs,
-        # and return logits over next tokens
+        # and return logits over next tokens and additional info
         def _decode_fn(
             token_ids: torch.Tensor,
             **kwargs: Any
-        ) -> torch.Tensor:
+        ) -> Tuple[torch.Tensor, Dict[str, Any]]:
             assert isinstance(self.model, PretrainedEncoderDecoder)
-            dec = self.model.decode(
+            dec, cache = self.model.decode(
                 token_ids,
                 kwargs.pop("memory"),
                 kwargs.pop("memory_padding_mask"),
+                kwargs.pop("kv_cache", None)
             )
-            return dec
+            print(len(cache), [len(c) for c in cache])
+            return dec, {"kv_cache": cache}
 
         def _kwargs_select_fn(
             kwargs: Dict[str, Any],
             mask: torch.Tensor
         ) -> Dict[str, Any]:
-            return {
+            selected = {
                 "memory": kwargs["memory"][mask],
-                "memory_padding_mask": kwargs["memory_padding_mask"][mask]
+                "memory_padding_mask": kwargs["memory_padding_mask"][mask],
             }
+            if "kv_cache" in kwargs:
+                selected["kv_cache"] = kwargs["kv_cache"][mask]
+            return selected
+
+        def _kwargs_update_fn(
+            kwargs: Dict[str, Any],
+            info: Dict[str, Any],
+            mask: torch.Tensor
+        ) -> None:
+            pass
 
         is_beam = self._strategy == "beam" and self._beam_width > 1
         is_sample = self._strategy == "sample" and self._sample_top_k > 1
@@ -569,6 +581,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 stop_fn=stop_fn,
                 device=self.device,
                 kwargs_select_fn=_kwargs_select_fn,
+                kwargs_update_fn=_kwargs_update_fn,
                 memory=enc,
                 memory_padding_mask=inputs["padding_mask"],
             )
