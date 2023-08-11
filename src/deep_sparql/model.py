@@ -15,7 +15,10 @@ from transformers import (
     BertModel,
     RobertaModel
 )
-from transformers.modeling_outputs import Seq2SeqLMOutput
+from transformers.modeling_outputs import (
+    CausalLMOutputWithPast,
+    Seq2SeqLMOutput,
+)
 
 
 class Model(nn.Module):
@@ -130,6 +133,7 @@ class PretrainedEncoderDecoder(Model):
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
+        self.kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
 
     def forward(
         self,
@@ -159,20 +163,30 @@ class PretrainedEncoderDecoder(Model):
         )  # type: ignore
         return output.last_hidden_state
 
+    def clear_kv_cache(self) -> None:
+        self.kv_cache = None
+
     def decode(
         self,
         token_ids: torch.Tensor,
         memory: torch.Tensor,
-        memory_padding_mask: torch.Tensor
+        memory_padding_mask: torch.Tensor,
+        kv_cache: bool = True
     ) -> torch.Tensor:
         assert isinstance(self.model, PreTrainedModel)
-        output = self.model(
-            decoder_input_ids=token_ids,
-            encoder_outputs=(memory, ),
+        inputs = self.model.prepare_inputs_for_generation(
+            input_ids=token_ids,
+            past_key_values=self.kv_cache,
+            use_cache=kv_cache,
+            encoder_outputs=memory,
             attention_mask=torch.logical_not(
                 memory_padding_mask
             ).to(torch.float),
-        )  # type: ignore
+        )
+        output = self.model(**inputs)
+        assert isinstance(output, Seq2SeqLMOutput)
+        if kv_cache:
+            self.kv_cache = output.past_key_values
         return output.logits
 
 
@@ -193,6 +207,7 @@ class PretrainedDecoder(Model):
             f"meta-llama/{name.capitalize()}-hf",
             load_in_8bit=use_8bit
         )
+        self.kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
 
     def forward(
         self,
@@ -205,8 +220,18 @@ class PretrainedDecoder(Model):
     def decode(
         self,
         token_ids: torch.Tensor,
-    ) -> Tuple[torch.Tensor]:
-        output = self.model(input_ids=token_ids)  # type: ignore
+        kv_cache: Optional[bool] = True
+    ) -> torch.Tensor:
+        assert isinstance(self.model, PreTrainedModel)
+        inputs = self.model.prepare_inputs_for_generation(
+            input_ids=token_ids,
+            past_key_values=self.kv_cache,
+            use_cache=kv_cache,
+        )
+        output = self.model(**inputs)
+        assert isinstance(output, CausalLMOutputWithPast)
+        if kv_cache:
+            self.kv_cache = output.past_key_values
         return output.logits
 
 
