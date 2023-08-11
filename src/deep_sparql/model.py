@@ -168,12 +168,13 @@ class PretrainedEncoderDecoder(Model):
         memory: torch.Tensor,
         memory_padding_mask: torch.Tensor,
         kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        use_cache: bool = True
     ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
         assert isinstance(self.model, PreTrainedModel)
         inputs = self.model.prepare_inputs_for_generation(
             input_ids=token_ids,
             past_key_values=kv_cache,
-            use_cache=kv_cache is not None,
+            use_cache=use_cache,
             encoder_outputs=(memory,),
             attention_mask=torch.logical_not(
                 memory_padding_mask
@@ -213,13 +214,14 @@ class PretrainedDecoder(Model):
     def decode(
         self,
         token_ids: torch.Tensor,
-        kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None
+        kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        use_cache: bool = True
     ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
         assert isinstance(self.model, PreTrainedModel)
         inputs = self.model.prepare_inputs_for_generation(
             input_ids=token_ids,
             past_key_values=kv_cache,
-            use_cache=kv_cache is not None,
+            use_cache=use_cache,
         )
         output = self.model(**inputs)
         assert isinstance(output, CausalLMOutputWithPast)
