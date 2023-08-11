@@ -503,9 +503,9 @@ class SPARQLGenerator(corrector.TextCorrector):
             assert isinstance(self.model, PretrainedEncoderDecoder)
             dec, cache = self.model.decode(
                 token_ids,
-                kwargs.pop("memory"),
-                kwargs.pop("memory_padding_mask"),
-                kwargs.pop("kv_cache", None)
+                kwargs["memory"],
+                kwargs["memory_padding_mask"],
+                kwargs.get("kv_cache", None)
             )
             print(len(cache), [len(c) for c in cache])
             return dec, {"kv_cache": cache}
@@ -555,6 +555,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 beam_width=self._beam_width,
                 select_fn=beam_select_fn,
                 kwargs_select_fn=_kwargs_select_fn,
+                kwargs_update_fn=_kwargs_update_fn,
                 memory=enc,
                 memory_padding_mask=inputs["padding_mask"],
             )
