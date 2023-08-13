@@ -44,12 +44,8 @@ class Index:
                 "tokens": [pad],
             }
         }
-        tokenizer = tokenization.Tokenizer.from_config(tokenizer_cfg)
         device = torch.device(device)
-        model = PretrainedEncoder(
-            model_name,
-            tokenizer.vocab_size()
-        ).to(device).eval()
+        model = PretrainedEncoder(model_name).to(device).eval()
         return tokenizer_cfg, model, device
 
     @staticmethod
