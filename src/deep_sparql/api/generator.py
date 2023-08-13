@@ -533,7 +533,8 @@ class SPARQLGenerator(corrector.TextCorrector):
             info: Dict[str, Any],
             mask: List[int]
         ) -> None:
-            if "kv_cache" not in info:
+            kv_cache = info.get("kv_cache", None)
+            if kv_cache is None:
                 return
             kwargs["kv_cache"] = [
                 info["kv_cache"][i]
@@ -643,10 +644,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             if isinstance(entity_index, str):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
+            self._entity_index.compute_memo(max_depth=2)  # type: ignore
         if property_index is not None:
             if isinstance(property_index, str):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
+            self._property_index.compute_memo(max_depth=2)  # type: ignore
         if self.has_indices:
             def _initial_conts(
                 index: prefix.Vec,
