@@ -4,6 +4,7 @@ timeout: 10
 # allow_origin: test.mydomain.com 
 feedback_file: env(FEEDBACK_FILE:feedback.jsonl)
 base_url: env(BASE_URL:/api)
+kv_cache: env(KV_CACHE:true)
 models:
   # load a pretrained model by specifying the name
   # - name: pretrained_model

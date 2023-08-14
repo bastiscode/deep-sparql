@@ -85,7 +85,8 @@ class SPARQLServer(TextCorrectionServer):
                     assert isinstance(cor, SPARQLGenerator)
                     cor.set_inference_options(
                         search_strategy,
-                        beam_width
+                        beam_width,
+                        use_cache=self.config.get("kv_cache", True)
                     )
                     start = time.perf_counter()
                     questions = cor.prepare_questions(
