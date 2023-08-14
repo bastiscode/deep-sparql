@@ -57,13 +57,13 @@ example-indices:
 	@echo "Preparing wikidata example index"
 	@python scripts/prepare_vector_index_data.py \
 	--inputs data/wikidata-lcquad2/train_input.txt \
-	--inputs data/wikidata-qald10/train_input.txt \
-	--inputs data/wikidata-mcwq/train_input.txt \
-	--inputs data/wikidata-qa-wiki/train_input.txt \
+	data/wikidata-qald10/train_input.txt \
+	data/wikidata-mcwq/train_input.txt \
+	data/wikidata-qa-wiki/train_input.txt \
 	--targets data/wikidata-lcquad2/train_sparql.txt \
-	--targets data/wikidata-qald10/train_sparql.txt \
-	--targets data/wikidata-mcwq/train_sparql.txt \
-	--targets data/wikidata-qa-wiki/train_sparql.txt \
+	data/wikidata-qald10/train_sparql.txt \
+	data/wikidata-mcwq/train_sparql.txt \
+	data/wikidata-qa-wiki/train_sparql.txt \
 	--output data/example-index/wikidata.txt
 	@echo "Preparing wikidata simple questions example index"
 	@python scripts/prepare_vector_index_data.py \
