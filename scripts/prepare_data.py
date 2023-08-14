@@ -397,7 +397,10 @@ def prepare(args: argparse.Namespace):
         assert len(samples) > 0, f"no samples for split {split}"
         has_sparql = samples[0].sparql is not None
         target_name = "sparql" if has_sparql else "result"
-        target = os.path.join(args.output, f"{split}_{target_name}.txt")
+        target = os.path.join(
+            args.output,
+            f"{split}_{target_name}{'_examples' * has_examples}.txt"
+        )
         print(f"found {len(samples):,} {split} samples")
         num_invalid = 0
         with open(input, "w") as inf, \
