@@ -42,6 +42,9 @@ def prepare(args: argparse.Namespace):
     assert len(args.inputs) == len(args.targets), \
         "expected same number of inputs and targets"
     pfx = f"{KNOWLEDGE_GRAPHS[args.kg]} {SPARQL_PREFIX} >>>> "
+    if os.path.exists(args.output) and os.path.isfile(args.output):
+        os.remove(args.output)
+    seen = set()
     for input_path, target_path in zip(args.inputs, args.targets):
         inputs = io.load_text_file(input_path)
         targets = io.load_text_file(target_path)
@@ -50,8 +53,7 @@ def prepare(args: argparse.Namespace):
         dir = os.path.dirname(args.output)
         if dir:
             os.makedirs(dir, exist_ok=True)
-        seen = set()
-        with open(args.output, "w") as of:
+        with open(args.output, "a", encoding="utf8") as of:
             for input, target in zip(inputs, targets):
                 if input in seen:
                     continue
