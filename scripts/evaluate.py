@@ -9,7 +9,7 @@ from text_correction_utils.io import load_text_file
 
 
 from deep_sparql.utils import (
-    query_qlever
+    calc_f1
 )
 
 
@@ -24,41 +24,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def get_entities(q: str) -> Optional[Set[Tuple[str, ...]]]:
-    try:
-        result = query_qlever(q)
-        if len(result) == 0:
-            return set()
-        return set(
-            tuple(r[var].value if var in r else "" for var in result.vars)
-            for r in result.results
-        )
-    except Exception:
-        return None
-
-
-def calc_f1(pred_and_target: Tuple[str, str]) -> Optional[float]:
-    pred, target = pred_and_target
-    if pred == target:
-        return 1.0
-    pred_set = get_entities(pred)
-    target_set = get_entities(target)
-    assert target_set is not None, "target query must be valid"
-    if pred_set is None:
-        return None
-    if len(pred_set) == 0 and len(target_set) == 0:
-        return 1.0
-    tp = len(pred_set.intersection(target_set))
-    fp = len(pred_set.difference(target_set))
-    fn = len(target_set.difference(pred_set))
-    # calculate precision, recall and f1
-    if tp > 0:
-        p = tp / (tp + fp)
-        r = tp / (tp + fn)
-        f1 = 2 * p * r / (p + r)
-    else:
-        f1 = 0.0
-    return f1
+def calc_f1_map(pred_and_target: Tuple[str, str]) -> Tuple[Optional[float], bool, bool]:
+    return calc_f1(*pred_and_target)
 
 
 def delete_file_or_create_dir(path: str):
@@ -84,11 +51,12 @@ def evaluate(args: argparse.Namespace):
         delete_file_or_create_dir(args.save_incorrect)
 
     f1s = []
-    invalid = 0
+    pred_invalid = 0
+    tgt_invalid = 0
     with Pool(args.num_processes) as pool:
-        for i, f1 in tqdm(
+        for i, (f1, pred_inv, tgt_inv) in tqdm(
             enumerate(pool.imap(
-                calc_f1,
+                calc_f1_map,
                 zip(predictions, targets),
                 chunksize=16
             )),
@@ -103,14 +71,19 @@ def evaluate(args: argparse.Namespace):
                 with open(args.save_incorrect, "a", encoding="utf8") as f:
                     f.write(f"{inputs[i]}\n{predictions[i]}\n{targets[i]}\n\n")
 
-            if f1 is None:
-                invalid += 1
-                f1s.append(0.0)
-            else:
-                f1s.append(f1)
+            if pred_inv:
+                pred_invalid += 1
+                f1 = 0.0
+            if tgt_inv:
+                tgt_invalid += 1
+                f1 = 0.0
+            f1s.append(f1)
     print(
-        f"Query-averaged F1: {100 * sum(f1s) / len(f1s):.2f} "
-        f"({invalid:,} invalid, {100 * invalid / len(f1s):.2f}%)"
+        f"Query-averaged F1: {sum(f1s) / len(f1s):.2%} "
+        f"({pred_invalid:,} invalid predictions, "
+        f"{pred_invalid / len(f1s):.2%} | "
+        f"{pred_invalid:,} invalid targets, "
+        f"{pred_invalid / len(f1s):.2%})"
     )
 
 

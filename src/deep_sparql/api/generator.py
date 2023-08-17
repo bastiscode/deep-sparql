@@ -179,11 +179,12 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def __init__(
         self,
-        model_dir: str,
-        device: Union[str, int]
+        model: nn.Module,
+        cfg: Dict[str, Any],
+        device: torch.device,
     ) -> None:
-        super().__init__(model_dir, device)
-        self.logger.debug(f"loaded model config:\n{self.cfg['model']}")
+        super().__init__(model, cfg, device)
+        self.logger.debug(f"got model config:\n{self.cfg['model']}")
         self.logger.info(
             f"running {self.name} SPARQL generator "
             f"on device {device_info(self.device)}"
@@ -195,10 +196,10 @@ class SPARQLGenerator(corrector.TextCorrector):
         self.output_tokenizer = tokenization.Tokenizer.from_config(
             self.cfg["output_tokenizer"]
         )
-        self._initial_token_ids = self.output_tokenizer.tokenize("")
-        out_pfx = self.output_tokenizer.num_prefix_tokens()
 
         # some options for inference
+        self._initial_token_ids = self.output_tokenizer.tokenize("")
+        out_pfx = self.output_tokenizer.num_prefix_tokens()
         self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
         self._eos_token = "</s>"
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
@@ -708,6 +709,8 @@ class SPARQLGenerator(corrector.TextCorrector):
         num_threads: Optional[int] = None,
         raw: bool = False,
         show_progress: bool = False,
+        n_examples: int = 3,
+        kg: Optional[str] = None
     ) -> Union[str, List[str]]:
         input_is_string = isinstance(inputs, str)
         assert (
@@ -738,7 +741,14 @@ class SPARQLGenerator(corrector.TextCorrector):
             langs = [None] * len(inputs)
 
         loader = self._get_loader(
-            (data.InferenceData(s, language=l) for s, l in zip(inputs, langs)),
+            (
+                data.InferenceData(
+                    s if raw else
+                    self.prepare_questions([s], n_examples, kg=kg)[0],
+                    language=l
+                )
+                for s, l in zip(inputs, langs)
+            ),
             batch_size,
             batch_max_tokens,
             sort,

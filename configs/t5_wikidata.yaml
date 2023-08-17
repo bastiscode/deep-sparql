@@ -17,7 +17,7 @@ train:
   num_epochs: env(NUM_EPOCHS:1)
   eval_interval: eval(1 / env(EVAL_PER_EPOCH:2))
   log_interval: eval(1 / env(LOG_PER_EPOCH:20))
-  step_interval: eval(1 / env(STEP_PER_EPOCH:1000))
+  step_interval: eval(1 / env(STEP_PER_EPOCH:100000))
   loss:
     type: sequence
     loss:
@@ -60,4 +60,5 @@ train:
       - file(data/qald10.yaml)
       - file(data/qawiki.yaml)
       # - file(data/wikidata_simplequestions.yaml)
-    val: env(VAL_LIMIT:500)
+val:
+  data: env(VAL_LIMIT:500)

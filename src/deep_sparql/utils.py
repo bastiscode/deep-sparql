@@ -1,6 +1,6 @@
 import re
 import requests
-from typing import Dict, List, Callable, Tuple, Optional
+from typing import Dict, List, Callable, Tuple, Optional, Set
 
 from tqdm import tqdm
 
@@ -436,3 +436,41 @@ def format_input(
         + f" >>>> {question}"
         + " >> " * decoder_only
     )
+
+
+def query_entities(sparql: str) -> Optional[Set[Tuple[str, ...]]]:
+    try:
+        result = query_qlever(sparql)
+        if len(result) == 0:
+            return set()
+        return set(
+            tuple(
+                r[var].value if var in r else ""
+                for var in result.vars
+            )
+            for r in result.results
+        )
+    except Exception:
+        return None
+
+
+def calc_f1(pred: str, target: str) -> Tuple[Optional[float], bool, bool]:
+    if pred == target:
+        return 1.0, False, False
+    pred_set = query_entities(pred)
+    target_set = query_entities(target)
+    if pred_set is None or target_set is None:
+        return None, target_set is None, pred_set is None
+    if len(pred_set) == 0 and len(target_set) == 0:
+        return 1.0, False, False
+    tp = len(pred_set.intersection(target_set))
+    fp = len(pred_set.difference(target_set))
+    fn = len(target_set.difference(pred_set))
+    # calculate precision, recall and f1
+    if tp > 0:
+        p = tp / (tp + fp)
+        r = tp / (tp + fn)
+        f1 = 2 * p * r / (p + r)
+    else:
+        f1 = 0.0
+    return f1, False, False

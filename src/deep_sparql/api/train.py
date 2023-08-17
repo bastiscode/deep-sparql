@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Dict, Any, Tuple
 
 import torch
@@ -12,11 +13,13 @@ from peft import (
 from text_correction_utils.api.trainer import Trainer
 from text_correction_utils import tokenization, data, api
 
+from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.model import (
     PretrainedDecoder,
     PretrainedEncoderDecoder,
     model_from_config
 )
+from deep_sparql.utils import calc_f1
 
 
 class SPARQLGenerationTrainer(Trainer):
@@ -115,6 +118,86 @@ class SPARQLGenerationTrainer(Trainer):
             )
 
         return inputs, labels
+
+    def _benchmark_and_checkpoint(self):
+        assert self.info.is_main_process, \
+            "benchmark should only be run on main process"
+        self.model = self.model.eval()
+
+        batch_size = self.cfg["train"]["batch_limit"]
+        if self.cfg["train"]["batch_limit_type"] == "batch_size":
+            batch_max_tokens = None
+        else:
+            batch_max_tokens = batch_size
+
+        cfg = self.cfg["val"]["benchmark"]
+        gen = SPARQLGenerator(self.model, self.cfg, self.info.device)
+        gen.set_indices(
+            cfg.get("entity_index", None),
+            cfg.get("property_index", None),
+            cfg.get("example_index", None)
+        )
+        gen.set_precision(
+            self.cfg["train"].get("mixed_precision_dtype", "fp32")
+            if self.cfg["train"].get("mixed_precision", False)
+            else "fp32"
+        )
+        gen.set_inference_options(
+            cfg.get("search", "greedy"),
+            cfg.get("beam_width", 5),
+            cfg.get("sample_top_k", 5),
+            use_cache=False
+        )
+        scores = []
+        p_invs = t_invs = 0
+        for batch in self.val_loader:
+            sparqls = []
+            questions = []
+            for item in batch.items:
+                sparqls.append(item.target)
+                questions.append(item.input)
+            outputs = gen.generate(
+                inputs=questions,
+                batch_size=batch_size,
+                batch_max_tokens=batch_max_tokens,
+                raw=True
+            )
+            predictions = [
+                gen.prepare_sparql_query(output)
+                for output in outputs
+            ]
+            targets = [
+                gen.prepare_sparql_query(sparql)
+                for sparql in sparqls
+            ]
+            if gen.has_indices:
+                for p, t in zip(predictions, targets):
+                    f1, p_inv, t_inv = calc_f1(p, t)
+                    p_invs += int(p_inv)
+                    t_invs += int(t_inv)
+                    scores.append(f1 or 0.0)
+            else:
+                scores.extend(
+                    float(p == t)
+                    for p, t in zip(predictions, targets)
+                )
+
+        self.summary_writer.add_scalar(
+            f"val_benchmark_{'f1' if gen.has_indices else 'acc'}",
+            sum(scores) / len(scores),
+            self.total_step
+        )
+        self.summary_writer.add_scalar(
+            "val_benchmark_prediction_invalid",
+            p_invs / len(scores),
+            self.total_step
+        )
+        self.summary_writer.add_scalar(
+            "val_benchmark_target_invalid",
+            t_invs / len(scores),
+            self.total_step
+        )
+        self.model = self.model.train()
 
 
 def main():

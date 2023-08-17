@@ -54,4 +54,5 @@ train:
       postprocessing: file(postprocessings/clip.yaml)
     sources: 
       - file(data/env(DATA_SOURCES:lcquad).yaml)
-    val: env(VAL_LIMIT:500)
+val:
+  data: env(VAL_LIMIT:500)
