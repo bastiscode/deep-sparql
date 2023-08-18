@@ -1,5 +1,4 @@
 import os
-import logging
 from typing import Dict, Any, Tuple
 
 import torch
@@ -11,7 +10,7 @@ from peft import (
 )
 
 from text_correction_utils.api.trainer import Trainer
-from text_correction_utils import tokenization, data, api
+from text_correction_utils import tokenization, data, api, distributed, io
 
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.model import (
@@ -19,7 +18,10 @@ from deep_sparql.model import (
     PretrainedEncoderDecoder,
     model_from_config
 )
-from deep_sparql.utils import calc_f1
+from deep_sparql.utils import (
+    calc_f1,
+    prepare_sparql_query
+)
 
 
 class SPARQLGenerationTrainer(Trainer):
@@ -123,19 +125,20 @@ class SPARQLGenerationTrainer(Trainer):
         assert self.info.is_main_process, \
             "benchmark should only be run on main process"
         self.model = self.model.eval()
-
-        batch_size = self.cfg["train"]["batch_limit"]
-        if self.cfg["train"]["batch_limit_type"] == "batch_size":
-            batch_max_tokens = None
-        else:
-            batch_max_tokens = batch_size
+        self.logger.info(
+            f"[step {self.total_step}] "
+            "benchmarking model on validation data"
+        )
 
         cfg = self.cfg["val"]["benchmark"]
-        gen = SPARQLGenerator(self.model, self.cfg, self.info.device)
+        gen = SPARQLGenerator(
+            distributed.unwrap_ddp(self.model),
+            self.cfg,
+            self.info.device
+        )
         gen.set_indices(
             cfg.get("entity_index", None),
             cfg.get("property_index", None),
-            cfg.get("example_index", None)
         )
         gen.set_precision(
             self.cfg["train"].get("mixed_precision_dtype", "fp32")
@@ -148,29 +151,64 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("sample_top_k", 5),
             use_cache=False
         )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            "setup SPARQL generator"
+        )
+        limit = min(
+            cfg.get("limit", self.val_loader.min_items),
+            self.val_loader.min_items
+        )
+        log_n = cfg.get("log_n_samples", 8)
+        kg = cfg.get("kg", "wikidata")
         scores = []
+        tok = gen.output_tokenizer
+        num_pfx = tok.num_prefix_tokens()
+        num_sfx = tok.num_suffix_tokens()
         p_invs = t_invs = 0
+        samples = []
         for batch in self.val_loader:
+            if len(scores) >= limit:
+                break
             sparqls = []
             questions = []
             for item in batch.items:
-                sparqls.append(item.target)
-                questions.append(item.input)
+                if len(scores) + len(sparqls) >= limit:
+                    break
+                questions.append(item.data.input)
+                sparqls.append(item.data.target)
             outputs = gen.generate(
                 inputs=questions,
-                batch_size=batch_size,
-                batch_max_tokens=batch_max_tokens,
+                batch_size=len(questions),
                 raw=True
             )
-            predictions = [
-                gen.prepare_sparql_query(output)
-                for output in outputs
-            ]
-            targets = [
-                gen.prepare_sparql_query(sparql)
-                for sparql in sparqls
-            ]
-            if gen.has_indices:
+            if len(samples) < log_n:
+                diff = log_n - len(samples)
+                for q, o, s in zip(
+                    questions[:diff],
+                    outputs[:diff],
+                    sparqls[:diff]
+                ):
+                    samples.append(
+                        f"Question  : {q}\n\n"
+                        f"Prediction: {o}\n\n"
+                        f"Target    : {s}"
+                    )
+            if gen.has_kg_indices:
+                predictions = [
+                    gen.prepare_sparql_query(output, kg)
+                    for output in outputs
+                ]
+                targets = [
+                    gen.prepare_sparql_query(
+                        tok.de_tokenize(
+                            tok.tokenize(sparql).token_ids[num_pfx:-num_sfx],
+                            False
+                        ).strip(),
+                        kg
+                    )
+                    for sparql in sparqls
+                ]
                 for p, t in zip(predictions, targets):
                     f1, p_inv, t_inv = calc_f1(p, t)
                     p_invs += int(p_inv)
@@ -178,25 +216,78 @@ class SPARQLGenerationTrainer(Trainer):
                     scores.append(f1 or 0.0)
             else:
                 scores.extend(
-                    float(p == t)
-                    for p, t in zip(predictions, targets)
+                    float(
+                        p.strip() == tok.de_tokenize(
+                            tok.tokenize(t).token_ids[num_pfx:-num_sfx],
+                            False
+                        ).strip()
+                    )
+                    for p, t in zip(outputs, sparqls)
                 )
+            self.logger.info(
+                f"[step {self.total_step}] "
+                f"benchmark_progress: {len(scores) / (limit or 1):.2%}, "
+                f"{len(scores):,} / {limit:,} items"
+            )
 
-        self.summary_writer.add_scalar(
-            f"val_benchmark_{'f1' if gen.has_indices else 'acc'}",
-            sum(scores) / len(scores),
+        sample_str = f"\n\n{'-' * 80}\n\n".join(samples)
+        self.summary_writer.add_text(
+            "val_benchmark_samples",
+            sample_str,
             self.total_step
         )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            f"val_benchmark_samples:\n\n{sample_str}"
+        )
+        postfix = "f1" if gen.has_kg_indices else "acc"
+        num_scores = len(scores) or 1
+        score = sum(scores) / num_scores
         self.summary_writer.add_scalar(
-            "val_benchmark_prediction_invalid",
-            p_invs / len(scores),
+            f"val_benchmark_{postfix}",
+            score,
             self.total_step
         )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            f"val_benchmark_{postfix}: {score:.2%}"
+        )
+        p_inv = p_invs / num_scores
         self.summary_writer.add_scalar(
-            "val_benchmark_target_invalid",
-            t_invs / len(scores),
+            "val_benchmark_invalid_predictions",
+            p_inv,
             self.total_step
         )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            f"val_benchmark_invalid_predictions: {p_inv:.2%}"
+        )
+        t_inv = t_invs / num_scores
+        self.summary_writer.add_scalar(
+            "val_benchmark_invalid_targets",
+            t_inv,
+            self.total_step
+        )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            f"val_benchmark_invalid_targets: {t_inv:.2%}"
+        )
+        if self.best_benchmark is None or score > self.best_benchmark:
+            self.best_benchmark = score
+            io.save_checkpoint(
+                os.path.join(
+                    self.directories["checkpoints"],
+                    "benchmark_best.pt"
+                ),
+                distributed.unwrap_ddp(self.model),
+                self.total_step,
+                self.epoch,
+                self.epoch_step,
+                self.epoch_items,
+                self.total_items,
+                0.0,
+                benchmark_score=self.best_benchmark
+            )
         self.model = self.model.train()
 
 

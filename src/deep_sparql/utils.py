@@ -207,14 +207,22 @@ def prepare_sparql_query(
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
     entity_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
-    bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>")
+    bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>"),
+    kg: Optional[str] = None
 ) -> str:
     s, _ = replace_vars(s, *var_special_tokens)
     s = replace_entities(s, entity_index, "", *entity_special_tokens)
     s = replace_properties(s, property_index, "", *property_special_tokens)
     s = replace_brackets(s, *bracket_special_tokens)
-    prefix = " ".join(wikidata_prefixes())
-    return f"{prefix} {s}"
+    if kg is None or kg == "wikidata":
+        prefix = wikidata_prefixes()
+    elif kg == "freebase":
+        prefix = freebase_prefixes()
+    elif kg == "dbpedia":
+        prefix = dbpedia_prefixes()
+    else:
+        raise RuntimeError(f"unknown knowledge graph {kg}")
+    return f"{' '.join(prefix)} {s}"
 
 
 class SPARQLRecord:
@@ -460,7 +468,7 @@ def calc_f1(pred: str, target: str) -> Tuple[Optional[float], bool, bool]:
     pred_set = query_entities(pred)
     target_set = query_entities(target)
     if pred_set is None or target_set is None:
-        return None, target_set is None, pred_set is None
+        return None, pred_set is None, target_set is None
     if len(pred_set) == 0 and len(target_set) == 0:
         return 1.0, False, False
     tp = len(pred_set.intersection(target_set))

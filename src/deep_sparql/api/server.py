@@ -105,9 +105,9 @@ class SPARQLServer(TextCorrectionServer):
                         raw=True
                     ):
                         generated.append(item.text)
-                        if not cor.has_indices:
+                        if not cor.has_kg_indices:
                             continue
-                        indices = cor.get_indices()
+                        indices = cor.get_kg_indices()
                         assert indices is not None
                         query = prepare_sparql_query(
                             item.text,
@@ -128,7 +128,7 @@ class SPARQLServer(TextCorrectionServer):
                         "raw": generated,
                         "runtime": {"b": b, "s": s}
                     }
-                    if cor.has_indices:
+                    if cor.has_kg_indices:
                         output["sparql"] = sparql
                     return jsonify(output)
 

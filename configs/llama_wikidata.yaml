@@ -26,7 +26,7 @@ train:
       label_smoothing: env(LABEL_SMOOTHING:0.0)
   optimizer:
     type: adamw
-    lr: env(LR:0.00005)
+    lr: env(LR:0.00003)
     weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
     type: multi_step_with_warmup

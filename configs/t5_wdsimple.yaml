@@ -13,9 +13,9 @@ train:
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
-  eval_interval: eval(1 / env(EVAL_PER_EPOCH:2))
-  log_interval: eval(1 / env(LOG_PER_EPOCH:20))
-  step_interval: eval(1 / env(STEP_PER_EPOCH:1000))
+  eval_interval: eval(1 / env(EVAL_N:10))
+  log_interval: eval(1 / env(LOG_N:100))
+  step_interval: eval(1 / env(STEP_N:100000))
   loss:
     type: sequence
     loss:
@@ -31,9 +31,6 @@ train:
     warmup_steps: env(WARMUP_STEPS:0.01)
     steps: [0.9]
     factors: [0.1]
-  metrics:
-    text_generation:
-      max_items: 8
   data:
     strategy: weighted
     shuffle: true
@@ -57,3 +54,11 @@ train:
 val:
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
+  benchmark:
+    limit: env(BENCHMARK_LIMIT:500)
+    entity_index: data/prefix-index/wikidata-t5-entities.bin
+    property_index: data/prefix-index/wikidata-t5-properties.bin
+    search: env(SEARCH:greedy)
+    beam_width: env(BEAM_WIDTH:5)
+    kg: wikidata
+    log_n_samples: env(BENCHMARK_LOG_N:8)

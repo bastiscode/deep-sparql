@@ -548,7 +548,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         batch_size = len(inputs["token_ids"])
         initial_token_ids = [self._initial_token_ids] * batch_size
         if is_beam:
-            if self.has_indices:
+            if self.has_kg_indices:
                 beam_select_fn = self._beam_select_fn()
             else:
                 beam_select_fn = default_beam_select_fn(self._beam_width)
@@ -575,7 +575,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             return [output[0].token_ids for output in outputs]
 
         else:
-            if self.has_indices:
+            if self.has_kg_indices:
                 decoding_state = self._initial_decoding_state(batch_size)
                 select_fn = self._index_select_fn(decoding_state)
             else:
@@ -651,7 +651,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
             self._property_index.compute_memo(max_depth=2)  # type: ignore
-        if self.has_indices:
+        if self.has_kg_indices:
             def _initial_conts(
                 index: prefix.Vec,
                 conts: List[bytes]
@@ -690,12 +690,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             self._example_index = example_index
 
     @property
-    def has_indices(self) -> bool:
+    def has_kg_indices(self) -> bool:
         return self._entity_index is not None \
             and self._property_index is not None
 
-    def get_indices(self) -> Optional[Tuple[prefix.Vec, prefix.Vec]]:
-        if self.has_indices:
+    def get_kg_indices(self) -> Optional[Tuple[prefix.Vec, prefix.Vec]]:
+        if self.has_kg_indices:
             return self._entity_index, self._property_index
         return None
 
@@ -779,19 +779,20 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         if input_is_string:
             output = next(iter(outputs)).text
-            return output if raw else self.prepare_sparql_query(output)
+            return output if raw else self.prepare_sparql_query(output, kg)
         else:
             return [
                 output.text if raw
-                else self.prepare_sparql_query(output.text)
+                else self.prepare_sparql_query(output.text, kg)
                 for output in outputs
             ]
 
     def prepare_sparql_query(
         self,
         output: str,
+        kg: Optional[str] = None
     ) -> str:
-        if not self.has_indices:
+        if not self.has_kg_indices:
             return output
         return prepare_sparql_query(
             output,
@@ -801,6 +802,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             entity_special_tokens=self._ent_special_tokens,
             property_special_tokens=self._prop_special_tokens,
             bracket_special_tokens=self._bracket_special_tokens,
+            kg=kg
         )
 
     def prepare_questions(
@@ -877,23 +879,24 @@ class SPARQLGenerator(corrector.TextCorrector):
             yield from output
         else:
             yield from (
-                self.prepare_sparql_query(data.text)
+                self.prepare_sparql_query(data.text, kg)
                 for data in output
             )
 
     def generate_file(
-            self,
-            input_file: str,
-            input_file_format: str = "text",
-            output_file: Optional[Union[TextIOWrapper, str]] = None,
-            output_file_format: str = "text",
-            language: Optional[str] = None,
-            batch_size: int = 16,
-            batch_max_tokens: Optional[int] = None,
-            sort: bool = True,
-            num_threads: Optional[int] = None,
-            raw: bool = False,
-            show_progress: bool = False
+        self,
+        input_file: str,
+        input_file_format: str = "text",
+        output_file: Optional[Union[TextIOWrapper, str]] = None,
+        output_file_format: str = "text",
+        language: Optional[str] = None,
+        batch_size: int = 16,
+        batch_max_tokens: Optional[int] = None,
+        sort: bool = True,
+        num_threads: Optional[int] = None,
+        raw: bool = False,
+        show_progress: bool = False,
+        kg: Optional[str] = None
     ) -> Optional[Iterator[str]]:
         assert input_file_format in self.supported_input_formats(), \
             f"unsupported input file format {input_file_format}, \
@@ -943,7 +946,10 @@ class SPARQLGenerator(corrector.TextCorrector):
 
             for output in outputs:
                 if not raw:
-                    output.text = self.prepare_sparql_query(output.text)
+                    output.text = self.prepare_sparql_query(
+                        output.text,
+                        kg
+                    )
                 output_file.write(f"{output.to_str(output_file_format)}\n")
 
             if output_file_is_str:
@@ -952,7 +958,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         else:
             return (
                 output.text if raw else
-                self.prepare_sparql_query(output.text)
+                self.prepare_sparql_query(output.text, kg)
                 for output in outputs
             )
 

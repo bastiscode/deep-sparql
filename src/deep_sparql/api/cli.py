@@ -25,7 +25,7 @@ class SPARQLCli(TextCorrectionCli):
 
     def format_output(self, item: data.InferenceData) -> Iterable[str]:
         self.cor: SPARQLGenerator
-        if not self.cor.has_indices:
+        if not self.cor.has_kg_indices:
             yield item.text
             return
         query = self.cor.prepare_sparql_query(item.text)
