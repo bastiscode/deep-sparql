@@ -163,7 +163,6 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("search", "greedy"),
             cfg.get("beam_width", 5),
             cfg.get("sample_top_k", 5),
-            use_cache=False
         )
         self.logger.info(
             f"[step {self.total_step}] "
