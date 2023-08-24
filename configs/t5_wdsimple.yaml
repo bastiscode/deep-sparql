@@ -52,12 +52,12 @@ train:
     sources: 
       - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
 val:
-  # cooldown: env(COOLDOWN:0.05)
+  cooldown: env(COOLDOWN:0.05)
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   benchmark:
     limit: env(BENCHMARK_LIMIT:500)
-    entity_index: data/prefix-index/wikidata-t5-entities.bin
+    entity_index: data/prefix-index/wikidata-t5-entities-small.bin
     property_index: data/prefix-index/wikidata-t5-properties.bin
     search: env(SEARCH:beam)
     beam_width: env(BEAM_WIDTH:5)
