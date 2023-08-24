@@ -10,7 +10,7 @@ from peft import (
 )
 
 from text_correction_utils.api.trainer import Trainer
-from text_correction_utils import tokenization, data, api, distributed, io
+from text_correction_utils import tokenization, data, api, distributed
 
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.model import (
@@ -18,10 +18,7 @@ from deep_sparql.model import (
     PretrainedEncoderDecoder,
     model_from_config
 )
-from deep_sparql.utils import (
-    calc_f1,
-    prepare_sparql_query
-)
+from deep_sparql.utils import calc_f1
 
 
 class SPARQLGenerationTrainer(Trainer):
@@ -64,7 +61,8 @@ class SPARQLGenerationTrainer(Trainer):
 
     def _prepare_batch(
         self,
-        batch: data.DataBatch
+        batch: data.DataBatch,
+        train: bool = True
     ) -> Tuple[Dict[str, Any], torch.Tensor]:
         assert len(batch) > 0, "got empty batch"
 
@@ -82,20 +80,20 @@ class SPARQLGenerationTrainer(Trainer):
             dtype=torch.long,
             device=self.info.device
         )
-        inputs = {
-            "token_ids": torch.from_numpy(token_ids_np).to(
-                non_blocking=True,
-                device=self.info.device
-            ),
-            "padding_mask": torch.from_numpy(pad_mask_np).to(
-                non_blocking=True,
-                device=self.info.device
-            ),
-            "lengths": lengths,
-            **api.to(info, self.info.device)
-        }
 
         if self.cfg["model"]["type"] == "pretrained_encoder_decoder":
+            inputs = {
+                "token_ids": torch.from_numpy(token_ids_np).to(
+                    non_blocking=True,
+                    device=self.info.device
+                ),
+                "padding_mask": torch.from_numpy(pad_mask_np).to(
+                    non_blocking=True,
+                    device=self.info.device
+                ),
+                "lengths": lengths,
+                **api.to(info, self.info.device)
+            }
             # for encoder decoder models we need to provide additional
             # information for the targets
             inputs["target_token_ids"] = torch.from_numpy(
@@ -106,13 +104,29 @@ class SPARQLGenerationTrainer(Trainer):
             )
 
         elif self.cfg["model"]["type"] == "pretrained_decoder":
-            # shift inputs for decoder only models
-            labels = inputs["token_ids"][..., 1:]
-            for i in range(len(inputs["lengths"])):
-                inputs["lengths"][i] -= 1
-                labels[i, inputs["lengths"][i]:] = -1
-            inputs["token_ids"] = inputs["token_ids"][..., :-1]
-            inputs["padding_mask"] = inputs["padding_mask"][..., :-1]
+            mask_prefix = self.cfg["train"].get("mask_prefix", False)
+            if (not train or mask_prefix) and "prefix_lengths" in label_info:
+                # mask out the prefix in the labels with -1 to ignore it
+                for i, pfx_l in enumerate(label_info["prefix_lengths"]):
+                    if pfx_l <= 0:
+                        continue
+                    labels_np[i, :pfx_l - 1] = -1
+
+            inputs = {
+                "token_ids": torch.from_numpy(
+                    label_info["token_ids"]
+                ).to(
+                    non_blocking=True,
+                    device=self.info.device
+                ),
+                "padding_mask": torch.from_numpy(
+                    label_info["padding_mask"]
+                ).to(
+                    non_blocking=True,
+                    device=self.info.device
+                ),
+                "lengths": label_info["lengths"],
+            }
 
         else:
             raise RuntimeError(
@@ -274,18 +288,13 @@ class SPARQLGenerationTrainer(Trainer):
         )
         if self.best_benchmark is None or score > self.best_benchmark:
             self.best_benchmark = score
-            io.save_checkpoint(
+            self._save_checkpoint(
                 os.path.join(
                     self.directories["checkpoints"],
                     "benchmark_best.pt"
                 ),
-                distributed.unwrap_ddp(self.model),
-                self.total_step,
-                self.epoch,
-                self.epoch_step,
-                self.epoch_items,
-                self.total_items,
                 0.0,
+                full=False,
                 benchmark_score=self.best_benchmark
             )
         self.model = self.model.train()

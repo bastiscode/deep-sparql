@@ -2,4 +2,6 @@ tokenize:
   type: huggingface
   name: relpath(llama-2/tokenizer.json)
 special:
+  tokens:
+    - <unk>
   pad: <unk>

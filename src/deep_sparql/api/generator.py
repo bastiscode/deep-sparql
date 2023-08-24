@@ -505,11 +505,13 @@ class SPARQLGenerator(corrector.TextCorrector):
             assert isinstance(self.model, PretrainedEncoderDecoder)
             dec, cache = self.model.decode(
                 token_ids,
+                kwargs["lengths"],
                 kwargs["memory"],
                 kwargs["memory_padding_mask"],
                 kwargs.get("kv_cache", None),
                 self._use_cache
             )
+            # print([[len(c_) for c_ in c] for c in cache])
             return dec, {"kv_cache": cache}
 
         def _kwargs_select_fn(
@@ -521,10 +523,10 @@ class SPARQLGenerator(corrector.TextCorrector):
                 "memory_padding_mask": kwargs["memory_padding_mask"][mask],
             }
             if "kv_cache" in kwargs:
-                selected["kv_cache"] = [
-                    kwargs["kv_cache"][i]
-                    for i in mask.tolist()
-                ]
+                selected["kv_cache"] = tuple(
+                    tuple(c[mask] for c in cache)
+                    for cache in kwargs["kv_cache"]
+                )
             else:
                 selected["kv_cache"] = None
             return selected
@@ -537,10 +539,10 @@ class SPARQLGenerator(corrector.TextCorrector):
             kv_cache = info.get("kv_cache", None)
             if kv_cache is None:
                 return
-            kwargs["kv_cache"] = [
-                info["kv_cache"][i]
-                for i in mask
-            ]
+            kwargs["kv_cache"] = tuple(
+                tuple(c[mask] for c in cache)
+                for cache in info["kv_cache"]
+            )
 
         is_beam = self._strategy == "beam" and self._beam_width > 1
         is_sample = self._strategy == "sample" and self._sample_top_k > 1
@@ -689,7 +691,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 example_index = vector.Index.load(example_index)
             self._example_index = example_index
 
-    @property
+    @ property
     def has_kg_indices(self) -> bool:
         return self._entity_index is not None \
             and self._property_index is not None

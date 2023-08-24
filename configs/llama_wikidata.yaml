@@ -3,7 +3,7 @@ experiment:
 
 seed: 22
 
-input_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama)_train.yaml)
+input_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama).yaml)
 output_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama).yaml)
 
 model: file(models/llama.yaml)

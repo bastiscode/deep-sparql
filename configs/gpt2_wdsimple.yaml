@@ -1,16 +1,18 @@
 experiment:
-  name: env(T5_MODEL:t5-small)-wdsimple
+  name: env(GPT2_MODEL:gpt2)-wdsimple
 
 seed: 22
 
-input_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
-output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
+input_tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2).yaml)
+output_tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2).yaml)
 
-model: file(models/t5.yaml)
+model: file(models/gpt2.yaml)
 
 train:
+  peft: file(peft/env(PEFT:none).yaml)
+  peft_task: lm
   mixed_precision: env(MIXED_PRECISION:false)
-  mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
+  mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:bfp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
   eval_interval: eval(1 / env(EVAL_N:10))
@@ -40,14 +42,16 @@ train:
     num_threads: eval(env(THREADS:None) or len(os.sched_getaffinity(0)) // 2)
     batch_limit: eval(env(MAX_LENGTH:512) * env(BATCH_LIMIT:8) if "env(BATCH_LIMIT_TYPE:padded_item_size)" == "padded_item_size" else env(BATCH_LIMIT:8))
     batch_limit_type: env(BATCH_LIMIT_TYPE:padded_item_size)
+    mask_prefix: env(MASK_PREFIX:true)
     pipeline:
       preprocessing: file(preprocessings/clean_and_normalize.yaml)
-      tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
+      tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2)_train.yaml)
       labeling:
+        tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2)_train.yaml)
         type: generation
-        tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
         generation:
-          type: target_only
+          type: input_and_target
+          separator: pad(>>;1;1; )
       postprocessing: file(postprocessings/clip.yaml)
     sources: 
       - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
@@ -57,8 +61,8 @@ val:
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   benchmark:
     limit: env(BENCHMARK_LIMIT:500)
-    entity_index: data/prefix-index/wikidata-t5-entities.bin
-    property_index: data/prefix-index/wikidata-t5-properties.bin
+    entity_index: data/prefix-index/wikidata-gpt2-entities.bin
+    property_index: data/prefix-index/wikidata-gpt2-properties.bin
     search: env(SEARCH:beam)
     beam_width: env(BEAM_WIDTH:5)
     kg: wikidata

@@ -11,7 +11,7 @@ model: file(models/t5.yaml)
 train:
   peft: file(peft/env(PEFT:none).yaml)
   peft_task: seq2seq
-  mixed_precision: env(MIXED_PRECISION:true)
+  mixed_precision: env(MIXED_PRECISION:false)
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)

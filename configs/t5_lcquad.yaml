@@ -9,7 +9,7 @@ output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
 model: file(models/t5.yaml)
 
 train:
-  mixed_precision: env(MIXED_PRECISION:true)
+  mixed_precision: env(MIXED_PRECISION:false)
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
