@@ -1,6 +1,6 @@
 import argparse
 import os
-from typing import Set, Optional, Tuple
+from typing import Optional, Tuple
 from multiprocessing import Pool
 
 from tqdm import tqdm
@@ -24,7 +24,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def calc_f1_map(pred_and_target: Tuple[str, str]) -> Tuple[Optional[float], bool, bool]:
+def calc_f1_map(
+    pred_and_target: Tuple[str, str]
+) -> Tuple[Optional[float], bool, bool]:
     return calc_f1(*pred_and_target)
 
 
