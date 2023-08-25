@@ -206,7 +206,10 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._initial_token_ids = self.output_tokenizer.tokenize("")
         out_pfx = self.output_tokenizer.num_prefix_tokens()
         self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
-        self.model: Model
+        self._is_encoder_decoder = isinstance(
+            self.model,
+            PretrainedEncoderDecoder
+        )
         self._eos_token = self.model.eos_token
         assert self._eos_token is not None
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
@@ -275,18 +278,23 @@ class SPARQLGenerator(corrector.TextCorrector):
         }
 
     def _prepare_batch(self, batch: data.InferenceBatch) -> Dict[str, Any]:
-        token_ids_np, pad_mask_np, *_ = batch.tensors()
-        inputs = {
-            "token_ids": torch.from_numpy(token_ids_np).to(
-                non_blocking=True,
-                device=self.device
-            ),
-            "padding_mask": torch.from_numpy(pad_mask_np).to(
-                non_blocking=True,
-                device=self.device
-            ),
-        }
-        return inputs
+        token_ids_np, pad_mask_np, lengths, *_ = batch.tensors()
+        if self._is_encoder_decoder:
+            return {
+                "token_ids": torch.from_numpy(token_ids_np).to(
+                    non_blocking=True,
+                    device=self.device
+                ),
+                "padding_mask": torch.from_numpy(pad_mask_np).to(
+                    non_blocking=True,
+                    device=self.device
+                )
+            }
+        else:
+            return {
+                "token_ids": token_ids_np,
+                "lengths": lengths
+            }
 
     def _initial_decoding_state(
         self,
@@ -499,13 +507,23 @@ class SPARQLGenerator(corrector.TextCorrector):
     def _inference(self, inputs: Dict[str, Any]) -> Any:
         batch_size = len(inputs["token_ids"])
         inference_kwargs = {}
-        if isinstance(self.model, PretrainedEncoderDecoder):
+        if self._is_encoder_decoder:
+            self.model: PretrainedEncoderDecoder
             enc = self.model.encode(**inputs)
             inference_kwargs["memory"] = enc
             inference_kwargs["memory_padding_mask"] = inputs["padding_mask"]
-            initial_token_ids = [self._initial_token_ids] * batch_size
+            initial_token_ids = [
+                list(self._initial_token_ids)
+                for _ in range(batch_size)
+            ]
         else:
-            initial_token_ids = inputs["token_ids"].tolist()
+            initial_token_ids = [
+                list(token_ids[:length])
+                for token_ids, length in zip(
+                    inputs["token_ids"],
+                    inputs["lengths"]
+                )
+            ]
 
         # decode fn gets in token ids and additional kwargs,
         # and return logits over next tokens and additional info
@@ -585,11 +603,11 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         else:
             if self.has_kg_indices:
-                decoding_state = [
-                    self._initial_decoding_state()
-                    for _ in range(batch_size)
+                decoding_states = [
+                    self._initial_decoding_state(token_ids)
+                    for token_ids in initial_token_ids
                 ]
-                select_fn = self._index_select_fn(decoding_state)
+                select_fn = self._index_select_fn(decoding_states)
             else:
                 select_fn: IdxSelectFn = sample_select_fn(
                     self._sample_top_k
