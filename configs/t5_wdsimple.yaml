@@ -28,7 +28,7 @@ train:
     weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
     type: cont_sqrt_with_warmup
-    warmup_steps: eval(40454 // (100 * env(BATCH_LIMIT:8)))
+    warmup_steps: eval((40454 * env(NUM_EPOCHS:1)) // (100 * env(BATCH_LIMIT:8)))
   data:
     strategy: weighted
     shuffle: true
