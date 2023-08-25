@@ -9,13 +9,13 @@ output_tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2).yaml)
 model: file(models/gpt2.yaml)
 
 train:
-  peft: file(peft/env(PEFT:none).yaml)
-  peft_task: lm
+  # peft: file(peft/env(PEFT:none).yaml)
+  # peft_task: lm
   mixed_precision: env(MIXED_PRECISION:false)
   mixed_precision_dtype: env(MIXED_PRECISION_DTYPE:bfp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
-  eval_interval: eval(1 / env(EVAL_N:10))
+  eval_interval: eval(1 / env(EVAL_N:4))
   log_interval: eval(1 / env(LOG_N:100))
   step_interval: eval(1 / env(STEP_N:100000))
   loss:
@@ -30,7 +30,7 @@ train:
     weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
     type: cont_sqrt_with_warmup
-    warmup_steps: eval(40454 // (100 * env(BATCH_LIMIT:8)))
+    warmup_steps: eval((40454 * env(NUM_EPOCHS:1)) // (100 * env(BATCH_LIMIT:8)))
   data:
     strategy: weighted
     shuffle: true
@@ -56,14 +56,15 @@ train:
     sources: 
       - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
 val:
-  # cooldown: env(COOLDOWN:0.05)
+  cooldown: env(COOLDOWN:0.05)
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   benchmark:
-    limit: env(BENCHMARK_LIMIT:500)
-    entity_index: data/prefix-index/wikidata-gpt2-entities.bin
-    property_index: data/prefix-index/wikidata-gpt2-properties.bin
+    limit: env(BENCHMARK_LIMIT:128)
+    entity_index: data/prefix-index/wikidata-t5-entities-small.bin
+    property_index: data/prefix-index/wikidata-t5-properties.bin
     search: env(SEARCH:beam)
-    beam_width: env(BEAM_WIDTH:5)
+    beam_width: env(BEAM_WIDTH:4)
+    batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH:4))
     kg: wikidata
     log_n_samples: env(BENCHMARK_LOG_N:8)
