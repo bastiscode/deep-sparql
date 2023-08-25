@@ -174,6 +174,7 @@ class SPARQLGenerationTrainer(Trainer):
         )
         log_n = cfg.get("log_n_samples", 8)
         kg = cfg.get("kg", "wikidata")
+        batch_size = cfg.get("batch_size", None)
         scores = []
         tok = gen.output_tokenizer
         num_pfx = tok.num_prefix_tokens()
@@ -192,7 +193,7 @@ class SPARQLGenerationTrainer(Trainer):
                 sparqls.append(item.data.target)
             outputs = gen.generate(
                 inputs=questions,
-                batch_size=len(questions),
+                batch_size=batch_size or len(questions),
                 raw=True
             )
             if len(samples) < log_n:

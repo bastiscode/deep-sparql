@@ -56,10 +56,11 @@ val:
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   benchmark:
-    limit: env(BENCHMARK_LIMIT:500)
+    limit: env(BENCHMARK_LIMIT:100)
     entity_index: data/prefix-index/wikidata-t5-entities-small.bin
     property_index: data/prefix-index/wikidata-t5-properties.bin
     search: env(SEARCH:beam)
-    beam_width: env(BEAM_WIDTH:5)
+    beam_width: env(BEAM_WIDTH:4)
+    batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH::4))
     kg: wikidata
     log_n_samples: env(BENCHMARK_LOG_N:8)
