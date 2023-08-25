@@ -23,7 +23,12 @@ from text_correction_utils.inference import (
 )
 
 from deep_sparql import vector
-from deep_sparql.model import PretrainedEncoderDecoder, model_from_config
+from deep_sparql.model import (
+    Model,
+    PretrainedDecoder,
+    PretrainedEncoderDecoder,
+    model_from_config
+)
 from deep_sparql.utils import (
     format_input,
     postprocess_output,
@@ -179,7 +184,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: Model,
         cfg: Dict[str, Any],
         device: torch.device,
     ) -> None:
@@ -201,7 +206,9 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._initial_token_ids = self.output_tokenizer.tokenize("")
         out_pfx = self.output_tokenizer.num_prefix_tokens()
         self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
-        self._eos_token = "</s>"
+        self.model: Model
+        self._eos_token = self.model.eos_token
+        assert self._eos_token is not None
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
             self._eos_token
         )
@@ -533,7 +540,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         def _kwargs_update_fn(
             kwargs: Dict[str, Any],
             info: Dict[str, Any],
-            mask: List[int]
+            mask: torch.Tensor
         ) -> None:
             kv_cache = info.get("kv_cache", None)
             if kv_cache is None:

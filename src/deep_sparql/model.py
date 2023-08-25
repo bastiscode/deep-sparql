@@ -31,6 +31,10 @@ class Model(nn.Module):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         raise NotImplementedError
 
+    @property
+    def eos_token(self) -> Optional[str]:
+        return None
+
 
 PRETRAINED_ENCODERS = [
     "t5-small",
@@ -132,6 +136,10 @@ class PretrainedEncoderDecoder(Model):
                 load_in_8bit=use_8bit
             )
 
+    @property
+    def eos_token(self) -> str | None:
+        return "</s>"
+
     def forward(
         self,
         token_ids: torch.Tensor,
@@ -220,6 +228,14 @@ class PretrainedDecoder(Model):
                 name,
                 load_in_8bit=use_8bit
             )
+        self.name = name
+
+    @property
+    def eos_token(self) -> str | None:
+        if self.name.startswith("gpt2"):
+            return "<|endoftext|>"
+        else:
+            return "</s>"
 
     def forward(
         self,
