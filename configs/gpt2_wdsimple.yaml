@@ -18,6 +18,7 @@ train:
   eval_interval: eval(1 / env(EVAL_N:4))
   log_interval: eval(1 / env(LOG_N:100))
   step_interval: eval(1 / env(STEP_N:100000))
+  mask_prefix: env(MASK_PREFIX:true)
   loss:
     type: sequence
     loss:
@@ -42,7 +43,6 @@ train:
     num_threads: eval(env(THREADS:None) or len(os.sched_getaffinity(0)) // 2)
     batch_limit: eval(env(MAX_LENGTH:512) * env(BATCH_LIMIT:8) if "env(BATCH_LIMIT_TYPE:padded_item_size)" == "padded_item_size" else env(BATCH_LIMIT:8))
     batch_limit_type: env(BATCH_LIMIT_TYPE:padded_item_size)
-    mask_prefix: env(MASK_PREFIX:true)
     pipeline:
       preprocessing: file(preprocessings/clean_and_normalize.yaml)
       tokenizer: file(tokenizers/env(GPT2_TOKENIZER:gpt2)_train.yaml)
