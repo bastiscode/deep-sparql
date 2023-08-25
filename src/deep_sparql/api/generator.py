@@ -290,22 +290,19 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def _initial_decoding_state(
         self,
-        n: int
-    ) -> List[DecodingState]:
+        initial_token_ids: Optional[List[int]]
+    ) -> DecodingState:
         # keep track of decoding state
         # None --> nothing
         # (ent, idx) --> entity starting at idx
         # (prop, idx) --> property starting at idx
-        return [
-            DecodingState(
-                list(self._initial_token_ids),
-                self._boe_ids,
-                self._eoe_ids,
-                self._bop_ids,
-                self._eop_ids
-            )
-            for _ in range(n)
-        ]
+        return DecodingState(
+            initial_token_ids or list(self._initial_token_ids),
+            self._boe_ids,
+            self._eoe_ids,
+            self._bop_ids,
+            self._eop_ids
+        )
 
     def _get_indices_and_conts(
         self,
@@ -500,8 +497,15 @@ class SPARQLGenerator(corrector.TextCorrector):
         return _fn
 
     def _inference(self, inputs: Dict[str, Any]) -> Any:
-        assert isinstance(self.model, PretrainedEncoderDecoder)
-        enc = self.model.encode(**inputs)
+        batch_size = len(inputs["token_ids"])
+        inference_kwargs = {}
+        if isinstance(self.model, PretrainedEncoderDecoder):
+            enc = self.model.encode(**inputs)
+            inference_kwargs["memory"] = enc
+            inference_kwargs["memory_padding_mask"] = inputs["padding_mask"]
+            initial_token_ids = [self._initial_token_ids] * batch_size
+        else:
+            initial_token_ids = inputs["token_ids"].tolist()
 
         # decode fn gets in token ids and additional kwargs,
         # and return logits over next tokens and additional info
@@ -553,8 +557,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         is_beam = self._strategy == "beam" and self._beam_width > 1
         is_sample = self._strategy == "sample" and self._sample_top_k > 1
 
-        batch_size = len(inputs["token_ids"])
-        initial_token_ids = [self._initial_token_ids] * batch_size
         if is_beam:
             if self.has_kg_indices:
                 beam_select_fn = self._beam_select_fn()
@@ -577,14 +579,16 @@ class SPARQLGenerator(corrector.TextCorrector):
                 select_fn=beam_select_fn,
                 kwargs_select_fn=_kwargs_select_fn,
                 kwargs_update_fn=_kwargs_update_fn,
-                memory=enc,
-                memory_padding_mask=inputs["padding_mask"],
+                **inference_kwargs
             )
             return [output[0].token_ids for output in outputs]
 
         else:
             if self.has_kg_indices:
-                decoding_state = self._initial_decoding_state(batch_size)
+                decoding_state = [
+                    self._initial_decoding_state()
+                    for _ in range(batch_size)
+                ]
                 select_fn = self._index_select_fn(decoding_state)
             else:
                 select_fn: IdxSelectFn = sample_select_fn(
@@ -604,8 +608,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 device=self.device,
                 kwargs_select_fn=_kwargs_select_fn,
                 kwargs_update_fn=_kwargs_update_fn,
-                memory=enc,
-                memory_padding_mask=inputs["padding_mask"],
+                **inference_kwargs
             )
 
     def _process_results(

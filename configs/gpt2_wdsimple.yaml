@@ -53,7 +53,7 @@ train:
         type: generation
         generation:
           type: input_and_target
-          separator: pad(>>;1;1; )
+          separator: pad(:;0;1; )
       postprocessing: file(postprocessings/clip.yaml)
     sources: 
       - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
