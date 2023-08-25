@@ -1,12 +1,11 @@
 import argparse
 import os
+import re
 
 
 from text_correction_utils import io
 
 from deep_sparql.utils import (
-    KNOWLEDGE_GRAPHS,
-    SPARQL_PREFIX,
     format_example
 )
 
@@ -41,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 def prepare(args: argparse.Namespace):
     assert len(args.inputs) == len(args.targets), \
         "expected same number of inputs and targets"
-    pfx = f"{KNOWLEDGE_GRAPHS[args.kg]} {SPARQL_PREFIX} >>>> "
+    q_pattern = re.compile(r"question \"(.*)\"")
     if os.path.exists(args.output) and os.path.isfile(args.output):
         os.remove(args.output)
     seen = set()
@@ -57,10 +56,11 @@ def prepare(args: argparse.Namespace):
             for input, target in zip(inputs, targets):
                 if input in seen:
                     continue
-                assert input.startswith(pfx)
-                input_without_pfx = input[len(pfx):]
-                example = format_example(input_without_pfx, target)
-                of.write(f"{input_without_pfx}\t{example}\n")
+                match = q_pattern.match(input)
+                assert match is not None
+                question = match.group(1)
+                example = format_example(question, target)
+                of.write(f"{question}\t{example}\n")
                 seen.add(input)
 
 

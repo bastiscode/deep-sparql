@@ -10,7 +10,7 @@ from text_correction_utils.api.table import generate_table
 SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
 WHERE_REGEX = r"WHERE\s*{(.*)}"
 
-SPARQL_PREFIX = "Generate SPARQL"
+SPARQL_PREFIX = "Generate a SPARQL query over for"
 
 QLEVER_URLS = {
     "wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
@@ -19,9 +19,9 @@ QLEVER_URLS = {
 }
 
 KNOWLEDGE_GRAPHS = {
-    "wikidata": "[WIKIDATA]",
-    "dbpedia": "[DBPEDIA]",
-    "freebase": "[FREEBASE]",
+    "wikidata": "Wikidata",
+    "dbpedia": "DBPedia",
+    "freebase": "Freebase"
 }
 
 
@@ -418,13 +418,20 @@ def format_example(
     question: str,
     sparql: str,
 ) -> str:
-    return f"{question} >> {sparql}"
+    return f"\"{question}\" to \"{sparql}\""
 
 
 def format_examples(
     examples: List[str],
 ) -> str:
-    return " >>>> ".join(examples)
+    formatted = ""
+    for i, example in enumerate(examples):
+        formatted += example
+        if i < len(examples) - 1:
+            formatted += ", "
+        if len(examples) > 1 and i == len(examples) - 2:
+            formatted += "and "
+    return formatted
 
 
 def format_input(
@@ -433,16 +440,17 @@ def format_input(
     kg: Optional[str] = None,
     decoder_only: bool = False
 ) -> str:
-    pfx = f"{SPARQL_PREFIX}"
-    if kg is not None:
-        pfx = f"{KNOWLEDGE_GRAPHS[kg]} {pfx}"
+    if kg is None:
+        kg = "knowledge graph"
+    else:
+        kg = KNOWLEDGE_GRAPHS[kg]
+    ipt = f"Generate a SPARQL query over {kg} for the question \"{question}\""
     if len(examples) == 0:
-        return f"{pfx} >>>> {question}" + " >> " * decoder_only
+        return ipt + ": " * decoder_only
     return (
-        f"{pfx} >>>> "
+        f"{ipt} with example{'s' * (len(examples) > 1)} "
         + format_examples(examples)
-        + f" >>>> {question}"
-        + " >> " * decoder_only
+        + ": " * decoder_only
     )
 
 
