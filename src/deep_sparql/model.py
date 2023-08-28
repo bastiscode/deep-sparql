@@ -19,6 +19,7 @@ from transformers import (
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithPast,
+    CausalLMOutputWithCrossAttentions,
     Seq2SeqLMOutput,
 )
 
@@ -264,7 +265,7 @@ class PretrainedDecoder(Model):
             past_key_values=kv_cache,
             use_cache=use_cache
         )
-        assert isinstance(output, CausalLMOutputWithPast)
+        assert isinstance(output, CausalLMOutputWithCrossAttentions)
         return output.logits, output.past_key_values  # type: ignore
 
 
