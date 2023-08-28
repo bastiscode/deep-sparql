@@ -25,7 +25,6 @@ from text_correction_utils.inference import (
 from deep_sparql import vector
 from deep_sparql.model import (
     Model,
-    PretrainedDecoder,
     PretrainedEncoderDecoder,
     model_from_config
 )
