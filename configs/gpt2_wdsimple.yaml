@@ -63,8 +63,8 @@ val:
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   benchmark:
     limit: env(BENCHMARK_LIMIT:128)
-    entity_index: data/prefix-index/wikidata-t5-entities-small.bin
-    property_index: data/prefix-index/wikidata-t5-properties.bin
+    entity_index: data/prefix-index/wikidata-gpt2-entities-small.bin
+    property_index: data/prefix-index/wikidata-gpt2-properties.bin
     search: env(SEARCH:beam)
     beam_width: env(BEAM_WIDTH:4)
     batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH:4))
