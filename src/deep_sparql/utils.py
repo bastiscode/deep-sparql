@@ -441,7 +441,6 @@ def format_input(
     question: str,
     examples: List[str],
     kg: Optional[str] = None,
-    decoder_only: bool = False
 ) -> str:
     if kg is None:
         kg = "knowledge graph"
@@ -449,11 +448,10 @@ def format_input(
         kg = KNOWLEDGE_GRAPHS[kg]
     ipt = f"Generate a SPARQL query over {kg} for the question \"{question}\""
     if len(examples) == 0:
-        return ipt + ": " * decoder_only
+        return ipt
     return (
         f"{ipt} with example{'s' * (len(examples) > 1)} "
         + format_examples(examples)
-        + ": " * decoder_only
     )
 
 

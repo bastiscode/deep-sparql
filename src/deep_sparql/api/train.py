@@ -189,9 +189,8 @@ class SPARQLGenerationTrainer(Trainer):
             for item in batch.items:
                 if len(scores) + len(sparqls) >= limit:
                     break
-                question = item.data.input
-                if not gen._is_encoder_decoder:
-                    question += ": "
+                question = item.data.input + ":" * \
+                    (not gen._is_encoder_decoder)
                 questions.append(question)
                 sparqls.append(item.data.target)
             outputs = gen.generate(
