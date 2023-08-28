@@ -1,0 +1,14 @@
+type: lora
+alpha: env(LORA_ALPHA:8)
+r: env(LORA_R:8)
+dropout: env(DROPOUT:0.1)
+target_modules: 
+  - SelfAttention.q
+  - SelfAttention.k
+  - SelfAttention.v
+  - SelfAttention.o
+  - EncDecAttention.q
+  - EncDecAttention.k
+  - EncDecAttention.v
+  - EncDecAttention.o
+use_8bit: env(USE_8BIT:false)

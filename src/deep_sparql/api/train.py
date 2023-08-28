@@ -18,7 +18,7 @@ from deep_sparql.model import (
     PretrainedEncoderDecoder,
     model_from_config
 )
-from deep_sparql.utils import calc_f1
+from deep_sparql.utils import calc_f1, format_input
 
 
 class SPARQLGenerationTrainer(Trainer):
@@ -189,7 +189,10 @@ class SPARQLGenerationTrainer(Trainer):
             for item in batch.items:
                 if len(scores) + len(sparqls) >= limit:
                     break
-                questions.append(item.data.input)
+                question = item.data.input
+                if not gen._is_encoder_decoder:
+                    question += ": "
+                questions.append(question)
                 sparqls.append(item.data.target)
             outputs = gen.generate(
                 inputs=questions,

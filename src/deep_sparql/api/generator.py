@@ -864,7 +864,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             examples = [[]] * len(questions)
 
         return [
-            format_input(q, [ex_str for ex_str, _ in ex], kg)
+            format_input(
+                q,
+                [ex_str for ex_str, _ in ex],
+                kg,
+                decoder_only=not self._is_encoder_decoder
+            )
             for q, ex in zip(questions, examples)
         ]
 
