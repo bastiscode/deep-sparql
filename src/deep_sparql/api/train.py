@@ -75,12 +75,6 @@ class SPARQLGenerationTrainer(Trainer):
             label_info
         ) = batch.tensors()
 
-        labels = torch.from_numpy(labels_np).to(
-            non_blocking=True,
-            dtype=torch.long,
-            device=self.info.device
-        )
-
         if self.cfg["model"]["type"] == "pretrained_encoder_decoder":
             inputs = {
                 "token_ids": torch.from_numpy(token_ids_np).to(
@@ -132,6 +126,12 @@ class SPARQLGenerationTrainer(Trainer):
             raise RuntimeError(
                 f"unknown model type: {self.cfg['model']['type']}"
             )
+
+        labels = torch.from_numpy(labels_np).to(
+            non_blocking=True,
+            dtype=torch.long,
+            device=self.info.device
+        )
 
         return inputs, labels
 
