@@ -81,21 +81,23 @@ example-indices:
 	--output data/example-index/wikidata-simplequestions-$(MODEL) \
 	--model $(MODEL) --batch-size $(BATCH_SIZE) --overwrite
 
+TOKENIZER = "t5"
+
 .PHONY: prefix-indices
 prefix-indices:
 	@echo "Creating wikidata prefix indices"
 	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-properties-index.tsv \
-	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
-	--out data/prefix-index/wikidata-t5-properties.bin
+	--tokenizer-cfg configs/tokenizers/$(TOKENIZER).yaml \
+	--out data/prefix-index/wikidata-$(TOKENIZER)-properties.bin
 	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-entities-index.tsv \
-	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
-	--out data/prefix-index/wikidata-t5-entities.bin
+	--tokenizer-cfg configs/tokenizers/$(TOKENIZER).yaml \
+	--out data/prefix-index/wikidata-$(TOKENIZER)-entities.bin
 	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-entities-small-index.tsv \
-	--tokenizer-cfg configs/tokenizers/t5_output.yaml \
-	--out data/prefix-index/wikidata-t5-entities-small.bin
+	--tokenizer-cfg configs/tokenizers/$(TOKENIZER).yaml \
+	--out data/prefix-index/wikidata-$(TOKENIZER)-entities-small.bin
 
 .PHONY: indices
 indices: prefix-indices example-indices
