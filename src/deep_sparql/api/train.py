@@ -213,31 +213,30 @@ class SPARQLGenerationTrainer(Trainer):
                     gen.prepare_sparql_query(output, kg)
                     for output in outputs
                 ]
-                targets = [
-                    gen.prepare_sparql_query(
+                targets = []
+                for sparql in sparqls:
+                    token_ids = tok.tokenize(sparql).token_ids
+                    target = gen.prepare_sparql_query(
                         tok.de_tokenize(
-                            tok.tokenize(sparql).token_ids[num_pfx:-num_sfx],
+                            token_ids[num_pfx:len(token_ids) - num_sfx],
                             False
                         ).strip(),
                         kg
                     )
-                    for sparql in sparqls
-                ]
+                    targets.append(target)
                 for p, t in zip(predictions, targets):
                     f1, p_inv, t_inv = calc_f1(p, t)
                     p_invs += int(p_inv)
                     t_invs += int(t_inv)
                     scores.append(f1 or 0.0)
             else:
-                scores.extend(
-                    float(
-                        p.strip() == tok.de_tokenize(
-                            tok.tokenize(t).token_ids[num_pfx:-num_sfx],
-                            False
-                        ).strip()
-                    )
-                    for p, t in zip(outputs, sparqls)
-                )
+                for p, t in zip(outputs, sparqls):
+                    token_ids = tok.tokenize(t).token_ids
+                    score = p.strip() == tok.de_tokenize(
+                        token_ids[num_pfx:len(token_ids) - num_sfx],
+                        False
+                    ).strip()
+                    scores.append(float(score))
             self.logger.info(
                 f"[step {self.total_step}] "
                 f"benchmark_progress: {len(scores) / (limit or 1):.2%}, "

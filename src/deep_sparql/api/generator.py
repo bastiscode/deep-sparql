@@ -647,7 +647,10 @@ class SPARQLGenerator(corrector.TextCorrector):
         num_pfx = self.output_tokenizer.num_prefix_tokens()
         num_sfx = self.output_tokenizer.num_suffix_tokens()
         merged = "".join(
-            self.output_tokenizer.de_tokenize(output[num_pfx:-num_sfx], False)
+            self.output_tokenizer.de_tokenize(
+                output[num_pfx:len(output)-num_sfx],
+                False
+            )
             for output in outputs
         )
         processed = postprocess_output(
