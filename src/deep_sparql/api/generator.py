@@ -531,15 +531,22 @@ class SPARQLGenerator(corrector.TextCorrector):
             token_ids: torch.Tensor,
             **kwargs: Any
         ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-            assert isinstance(self.model, PretrainedEncoderDecoder)
-            dec, cache = self.model.decode(
-                token_ids,
-                kwargs["lengths"],
-                kwargs["memory"],
-                kwargs["memory_padding_mask"],
-                kwargs.get("kv_cache", None),
-                self._use_cache
-            )
+            if self._is_encoder_decoder:
+                dec, cache = self.model.decode(
+                    token_ids,
+                    kwargs["lengths"],
+                    kwargs["memory"],
+                    kwargs["memory_padding_mask"],
+                    kwargs.get("kv_cache", None),
+                    self._use_cache
+                )
+            else:
+                dec, cache = self.model.decode(
+                    token_ids,
+                    kwargs["lengths"],
+                    kwargs.get("kv_cache", None),
+                    self._use_cache
+                )
             return dec, {"kv_cache": cache}
 
         def _kwargs_select_fn(
