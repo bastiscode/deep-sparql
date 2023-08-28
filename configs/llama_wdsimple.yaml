@@ -18,6 +18,7 @@ train:
   eval_interval: eval(1 / env(EVAL_N:4))
   log_interval: eval(1 / env(LOG_N:100))
   step_interval: eval(1 / env(STEP_N:100000))
+  mask_prefix: env(MASK_PREFIX:true)
   loss:
     type: sequence
     loss:
