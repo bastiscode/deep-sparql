@@ -391,10 +391,10 @@ def special_token_or_token_ids(
         return s, [token_id]
     num_pfx = tok.num_prefix_tokens()
     num_sfx = tok.num_suffix_tokens()
-    # adding an 'a ' here is necessary because some tokenizers implicitly add
+    # adding an 'a' here is necessary because some tokenizers implicitly add
     # a leading space, causing the token ids to potentially contain
     # the token id for a space in the beginning
-    dummy = "a "
+    dummy = "a"
     token_ids = tok.tokenize(dummy).token_ids
     dummy_token_ids = token_ids[num_pfx:len(token_ids)-num_sfx]
     token_ids = tok.tokenize(dummy + s).token_ids
