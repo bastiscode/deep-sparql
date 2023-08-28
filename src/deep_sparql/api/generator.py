@@ -645,6 +645,10 @@ class SPARQLGenerator(corrector.TextCorrector):
     ) -> data.InferenceData:
         num_pfx = self.output_tokenizer.num_prefix_tokens()
         num_sfx = self.output_tokenizer.num_suffix_tokens()
+        if not self._is_encoder_decoder:
+            assert num_sfx == 0, \
+                "expected 0 suffix tokens for decoder-only models at inference"
+            num_sfx = 1
         merged = "".join(
             self.output_tokenizer.de_tokenize(
                 output[num_pfx:len(output)-num_sfx],
