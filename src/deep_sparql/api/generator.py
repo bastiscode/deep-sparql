@@ -553,20 +553,20 @@ class SPARQLGenerator(corrector.TextCorrector):
             mask: torch.Tensor
         ) -> Dict[str, Any]:
             if self._is_encoder_decoder:
-                selected = {
+                return {
                     "memory": kwargs["memory"][mask],
                     "memory_padding_mask": kwargs["memory_padding_mask"][mask],
                 }
             else:
-                selected = {}
-            if "kv_cache" in kwargs:
-                selected["kv_cache"] = tuple(
-                    tuple(c[mask] for c in cache)
-                    for cache in kwargs["kv_cache"]
-                )
-            else:
-                selected["kv_cache"] = None
-            return selected
+                return {}
+            # if "kv_cache" in kwargs:
+            #     selected["kv_cache"] = tuple(
+            #         tuple(c[mask] for c in cache)
+            #         for cache in kwargs["kv_cache"]
+            #     )
+            # else:
+            #     selected["kv_cache"] = None
+            # return selected
 
         def _kwargs_update_fn(
             kwargs: Dict[str, Any],
