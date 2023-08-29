@@ -557,16 +557,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                     "memory": kwargs["memory"][mask],
                     "memory_padding_mask": kwargs["memory_padding_mask"][mask],
                 }
-            else:
-                return {}
-            # if "kv_cache" in kwargs:
-            #     selected["kv_cache"] = tuple(
-            #         tuple(c[mask] for c in cache)
-            #         for cache in kwargs["kv_cache"]
-            #     )
-            # else:
-            #     selected["kv_cache"] = None
-            # return selected
+            return {}
 
         def _kwargs_update_fn(
             kwargs: Dict[str, Any],

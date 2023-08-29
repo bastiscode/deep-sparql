@@ -194,13 +194,13 @@ def main():
         help="knowledge graph to use"
     )
     parser.add_argument(
-        "--entity-index",
+        "-E", "--entity-index",
         type=str,
         default=None,
         help="Path to entity index file"
     )
     parser.add_argument(
-        "--property-index",
+        "-P", "--property-index",
         type=str,
         default=None,
         help="Path to property index file"
