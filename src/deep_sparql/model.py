@@ -1,10 +1,13 @@
 import copy
+import functools
 from typing import Dict, Any, Optional, Tuple
 
 import torch
 from torch import nn
 
 from text_correction_utils import tokenization
+from text_correction_utils.api.trainer import ShardingPolicy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 
 from transformers import (
@@ -18,10 +21,12 @@ from transformers import (
 )
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
-    CausalLMOutputWithPast,
     CausalLMOutputWithCrossAttentions,
     Seq2SeqLMOutput,
 )
+from transformers.models.mt5 import MT5Stack
+from transformers.models.mt5.modeling_mt5 import MT5Block
+from transformers.models.t5.modeling_t5 import T5Block, T5Stack
 
 
 class Model(nn.Module):
@@ -34,6 +39,9 @@ class Model(nn.Module):
 
     @property
     def eos_token(self) -> Optional[str]:
+        return None
+
+    def get_sharding_policy(self) -> ShardingPolicy | None:
         return None
 
 
@@ -117,7 +125,8 @@ class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
         name: str,
-        use_8bit: bool = False
+        use_8bit: bool = False,
+        gradient_checkpointing: bool = False
     ):
         super().__init__()
         assert name in PRETRAINED_ENCODER_DECODERS, f"unknown model {name}"
@@ -126,20 +135,39 @@ class PretrainedEncoderDecoder(Model):
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
+            self.stack_cls = MT5Stack
+            self.layer_cls = MT5Block
         elif name.startswith("t5") and not name.startswith("t5-v1_1"):
             self.model = T5ForConditionalGeneration.from_pretrained(
                 name,
                 load_in_8bit=use_8bit
             )
+            self.stack_cls = T5Stack
+            self.layer_cls = T5Block
         else:
             self.model = T5ForConditionalGeneration.from_pretrained(
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
+            self.stack_cls = T5Stack
+            self.layer_cls = T5Block
+
+        assert isinstance(self.model, PreTrainedModel)
+        if gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
 
     @property
     def eos_token(self) -> str | None:
         return "</s>"
+
+    def get_sharding_policy(self) -> ShardingPolicy | None:
+        return functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={
+                self.stack_cls,
+                self.layer_cls
+            }  # type: ignore
+        )
 
     def forward(
         self,
@@ -214,10 +242,12 @@ class PretrainedDecoder(Model):
     def __init__(
         self,
         name: str,
-        use_8bit: bool = False
+        use_8bit: bool = False,
+        gradient_checkpointing: bool = False
     ):
         super().__init__()
         assert name in PRETRAINED_DECODERS, f"unknown model {name}"
+        self.name = name
 
         if name.startswith("llama"):
             self.model = LlamaForCausalLM.from_pretrained(
@@ -229,7 +259,10 @@ class PretrainedDecoder(Model):
                 name,
                 load_in_8bit=use_8bit
             )
-        self.name = name
+
+        assert isinstance(self.model, PreTrainedModel)
+        if gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
 
     @property
     def eos_token(self) -> str | None:
@@ -237,6 +270,10 @@ class PretrainedDecoder(Model):
             return "<|endoftext|>"
         else:
             return "</s>"
+
+    @staticmethod
+    def get_sharding_policy() -> ShardingPolicy | None:
+        pass
 
     def forward(
         self,

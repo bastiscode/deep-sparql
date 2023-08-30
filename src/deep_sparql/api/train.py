@@ -9,7 +9,7 @@ from peft import (
     get_peft_model
 )
 
-from text_correction_utils.api.trainer import Trainer
+from text_correction_utils.api.trainer import ShardingPolicy, Trainer
 from text_correction_utils import tokenization, data, api, distributed
 
 from deep_sparql.api.generator import SPARQLGenerator
@@ -18,12 +18,15 @@ from deep_sparql.model import (
     PretrainedEncoderDecoder,
     model_from_config
 )
-from deep_sparql.utils import calc_f1, format_input
+from deep_sparql.utils import calc_f1
 
 
 class SPARQLGenerationTrainer(Trainer):
     @classmethod
-    def _model_from_config(cls, cfg: Dict[str, Any]) -> nn.Module:
+    def _model_from_config(
+        cls,
+        cfg: Dict[str, Any]
+    ) -> Tuple[nn.Module, ShardingPolicy | None]:
         input_tokenizer = tokenization.Tokenizer.from_config(
             cfg["input_tokenizer"]
         )
@@ -33,11 +36,12 @@ class SPARQLGenerationTrainer(Trainer):
             )
         else:
             output_tokenizer = None
-        return model_from_config(
+        model = model_from_config(
             cfg["model"],
             input_tokenizer,
             output_tokenizer
         )
+        return model, model.get_sharding_policy()
 
     @classmethod
     def _prepare_peft(
