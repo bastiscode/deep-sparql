@@ -9,6 +9,7 @@ output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
 model: file(models/t5.yaml)
 
 train:
+  peft: file(peft/env(PEFT:none).yaml)
   compile: env(COMPILE:false)
   precision: env(PRECISION:fp32)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
