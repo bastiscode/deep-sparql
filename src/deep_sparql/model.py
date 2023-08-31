@@ -24,6 +24,8 @@ from transformers.modeling_outputs import (
     CausalLMOutputWithCrossAttentions,
     Seq2SeqLMOutput,
 )
+from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.mt5 import MT5Stack
 from transformers.models.mt5.modeling_mt5 import MT5Block
 from transformers.models.t5.modeling_t5 import T5Block, T5Stack
@@ -164,7 +166,6 @@ class PretrainedEncoderDecoder(Model):
         return functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={
-                # self.stack_cls,
                 self.layer_cls
             }  # type: ignore
         )
@@ -254,11 +255,13 @@ class PretrainedDecoder(Model):
                 f"meta-llama/{name.capitalize()}-hf",
                 load_in_8bit=use_8bit
             )
+            self.layer_cls = LlamaDecoderLayer
         else:
             self.model = GPT2LMHeadModel.from_pretrained(
                 name,
                 load_in_8bit=use_8bit
             )
+            self.layer_cls = GPT2Block
 
         assert isinstance(self.model, PreTrainedModel)
         if gradient_checkpointing:
@@ -271,9 +274,13 @@ class PretrainedDecoder(Model):
         else:
             return "</s>"
 
-    @staticmethod
-    def get_sharding_policy() -> ShardingPolicy | None:
-        pass
+    def get_sharding_policy(self) -> ShardingPolicy | None:
+        return functools.partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={
+                self.layer_cls
+            }  # type: ignore
+        )
 
     def forward(
         self,
