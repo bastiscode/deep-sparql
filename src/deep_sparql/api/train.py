@@ -50,8 +50,7 @@ class SPARQLGenerationTrainer(Trainer):
         peft_cfg: PeftConfig,
         use8_bit: bool = False
     ) -> nn.Module:
-        if isinstance(model, PretrainedEncoderDecoder) or \
-                isinstance(model, PretrainedDecoder):
+        if isinstance(model, (PretrainedEncoderDecoder, PretrainedDecoder)):
             if use8_bit:
                 model.model = prepare_model_for_kbit_training(
                     model.model
