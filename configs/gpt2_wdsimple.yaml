@@ -38,7 +38,7 @@ train:
     # type: cont_sqrt_with_warmup
     # warmup_steps: eval((40454 * env(NUM_EPOCHS:1)) // (100 * env(BATCH_LIMIT:8)))
     type: constant_with_warmup
-    warmup_steps: env(WARMUP:0.01)
+    warmup_steps: env(WARMUP:0.05)
   data:
     strategy: weighted
     shuffle: true

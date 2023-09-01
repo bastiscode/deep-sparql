@@ -35,10 +35,8 @@ train:
     weight_decay: env(WEIGHT_DECAY:0.01)
     optim_bits: eval(8 if "env(USE_8BIT:false)" == "true" else 32)
   lr_scheduler:
-    # type: cont_sqrt_with_warmup
-    # warmup_steps: eval((40454 * env(NUM_EPOCHS:1)) // (100 * env(BATCH_LIMIT:8)))
     type: constant_with_warmup
-    warmup_steps: env(WARMUP:0.01)
+    warmup_steps: env(WARMUP:0.05)
   data:
     strategy: weighted
     shuffle: true
@@ -62,9 +60,9 @@ train:
     sources: 
       - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
 val:
-  cooldown: env(COOLDOWN:0.05)
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
+  cooldown: env(COOLDOWN:0.05)
   benchmark:
     limit: env(BENCHMARK_LIMIT:128)
     entity_index: data/prefix-index/wikidata-t5-entities.bin
