@@ -137,25 +137,23 @@ class PretrainedEncoderDecoder(Model):
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
-            self.stack_cls = MT5Stack
             self.layer_cls = MT5Block
         elif name.startswith("t5") and not name.startswith("t5-v1_1"):
             self.model = T5ForConditionalGeneration.from_pretrained(
                 name,
                 load_in_8bit=use_8bit
             )
-            self.stack_cls = T5Stack
             self.layer_cls = T5Block
         else:
             self.model = T5ForConditionalGeneration.from_pretrained(
                 f"google/{name}",
                 load_in_8bit=use_8bit
             )
-            self.stack_cls = T5Stack
             self.layer_cls = T5Block
 
         assert isinstance(self.model, PreTrainedModel)
         if gradient_checkpointing:
+            self.model.config.use_cache = False
             self.model.gradient_checkpointing_enable()
 
     @property
@@ -265,6 +263,7 @@ class PretrainedDecoder(Model):
 
         assert isinstance(self.model, PreTrainedModel)
         if gradient_checkpointing:
+            self.model.config.use_cache = False
             self.model.gradient_checkpointing_enable()
 
     @property
