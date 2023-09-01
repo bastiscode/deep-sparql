@@ -68,8 +68,7 @@ class PretrainedEncoder(Model):
         self.name = name
         if name.startswith("t5"):
             model = PretrainedEncoderDecoder(name).model
-            assert isinstance(model, PreTrainedModel)
-            self.model = model.encoder
+            self.model = model.encoder  # type: ignore
         elif name.startswith("bert"):
             self.model = BertModel.from_pretrained(name)
         else:
@@ -189,11 +188,10 @@ class PretrainedEncoderDecoder(Model):
         token_ids: torch.Tensor,
         padding_mask: torch.Tensor,
     ) -> torch.Tensor:
-        assert isinstance(self.model, PreTrainedModel)
-        output = self.model.encoder(
+        output = self.model.encoder(  # type: ignore
             input_ids=token_ids,
             attention_mask=torch.logical_not(padding_mask).to(torch.float),
-        )  # type: ignore
+        )
         return output.last_hidden_state
 
     def decode(
@@ -205,14 +203,13 @@ class PretrainedEncoderDecoder(Model):
         kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None,
         use_cache: bool = True
     ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
-        assert isinstance(self.model, PreTrainedModel)
         if use_cache and kv_cache is not None:
             b, s = token_ids.shape
             assert token_ids.ndim == 2 and s > 0
             token_ids = token_ids[torch.arange(
                 b, device=token_ids.device
             ), lengths - 1, None]
-        output = self.model.decoder(
+        output = self.model.decoder(  # type: ignore
             input_ids=token_ids,
             encoder_hidden_states=memory,
             encoder_attention_mask=torch.logical_not(
@@ -222,7 +219,7 @@ class PretrainedEncoderDecoder(Model):
             use_cache=use_cache,
         )
         assert isinstance(output, BaseModelOutputWithPastAndCrossAttentions)
-        logits = self.model.lm_head(output.last_hidden_state)
+        logits = self.model.lm_head(output.last_hidden_state)  # type: ignore
         return logits, output.past_key_values  # type: ignore
 
 
@@ -296,14 +293,13 @@ class PretrainedDecoder(Model):
         kv_cache: Optional[Tuple[Tuple[torch.Tensor]]] = None,
         use_cache: bool = True
     ) -> Tuple[torch.Tensor, Tuple[Tuple[torch.Tensor]]]:
-        assert isinstance(self.model, PreTrainedModel)
         if use_cache and kv_cache is not None:
             b, s = token_ids.shape
             assert token_ids.ndim == 2 and s > 0
             token_ids = token_ids[torch.arange(
                 b, device=token_ids.device
             ), lengths - 1, None]
-        output = self.model(
+        output = self.model(  # type: ignore
             input_ids=token_ids,
             past_key_values=kv_cache,
             use_cache=use_cache
