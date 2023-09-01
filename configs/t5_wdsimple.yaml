@@ -18,6 +18,7 @@ train:
   log_interval: eval(1 / env(LOG_N:100))
   step_interval: eval(1 / env(STEP_N:100000))
   distributed:
+    type: env(DIST_TYPE:DDP)
     strategy: env(DIST_SHARD:NO_SHARD)
     offload: env(DIST_OFFLOAD:false)
     prefetch: env(DIST_PREFETCH:true)
@@ -32,7 +33,7 @@ train:
     type: adamw
     lr: env(LR:0.00005)
     weight_decay: env(WEIGHT_DECAY:0.01)
-    optim_bits: eval(8 if "env(USE_8BIT:true)" == "true" else 32)
+    optim_bits: eval(8 if "env(USE_8BIT:false)" == "true" else 32)
   lr_scheduler:
     # type: cont_sqrt_with_warmup
     # warmup_steps: eval((40454 * env(NUM_EPOCHS:1)) // (100 * env(BATCH_LIMIT:8)))

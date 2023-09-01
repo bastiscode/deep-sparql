@@ -150,7 +150,7 @@ class SPARQLGenerationTrainer(Trainer):
 
         cfg = self.cfg["val"]["benchmark"]
         gen = SPARQLGenerator(
-            distributed.unwrap_ddp(self.model),
+            distributed.unwrap_model(self.model),
             self.cfg,
             self.info.device
         )
@@ -249,6 +249,7 @@ class SPARQLGenerationTrainer(Trainer):
                 f"{len(scores):,} / {limit:,} items"
             )
 
+        assert self.summary_writer is not None
         sample_str = f"\n\n{'-' * 80}\n\n".join(samples)
         self.summary_writer.add_text(
             "val_benchmark_samples",
