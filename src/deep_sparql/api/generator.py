@@ -6,11 +6,12 @@ from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
 
 import torch
 from torch import nn
+from peft import get_peft_model
 
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
-from text_correction_utils.api.utils import device_info
+from text_correction_utils.api.utils import device_info, get_peft_config
 from text_correction_utils.inference import (
     Beam,
     BeamSelectFn,
@@ -161,11 +162,18 @@ class SPARQLGenerator(corrector.TextCorrector):
             )
         else:
             output_tokenizer = None
-        return model_from_config(
+        model = model_from_config(
             cfg["model"],
             input_tokenizer,
             output_tokenizer
         )
+        peft = cfg["train"].get("peft", None)
+        if peft is not None:
+            model.model = get_peft_model(
+                model.model,
+                get_peft_config(peft)
+            )
+        return model
 
     @property
     def max_length(self) -> int:
