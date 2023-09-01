@@ -1003,13 +1003,3 @@ class SPARQLGenerator(corrector.TextCorrector):
                 self.prepare_sparql_query(output.text, kg)
                 for output in outputs
             )
-
-    def set_precision(self, precision: str) -> None:
-        training_precision = self.cfg["train"].get(
-            "mixed_precision_dtype", "fp32")
-        if precision != "fp32" and precision != training_precision:
-            self.logger.warning(
-                f"this model was trained with {training_precision} precision, "
-                "inference with {precision} might give unexpected results"
-            )
-        return super().set_precision(precision)
