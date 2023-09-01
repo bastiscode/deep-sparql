@@ -3,10 +3,14 @@ import os
 # import time
 import sys
 from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
+from peft.tuners.lora import LoraModel
 
 import torch
 from torch import nn
-from peft import get_peft_model
+from peft import (
+    PeftModel,
+    get_peft_model
+)
 
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
