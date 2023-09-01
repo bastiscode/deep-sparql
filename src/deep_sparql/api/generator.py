@@ -25,6 +25,7 @@ from text_correction_utils.inference import (
 from deep_sparql import vector
 from deep_sparql.model import (
     Model,
+    PretrainedDecoder,
     PretrainedEncoderDecoder,
     model_from_config
 )
@@ -188,79 +189,80 @@ class SPARQLGenerator(corrector.TextCorrector):
         device: torch.device,
     ) -> None:
         super().__init__(model, cfg, device)
+        assert isinstance(model, (PretrainedDecoder, PretrainedEncoderDecoder)))
         self.logger.debug(f"got model config:\n{self.cfg['model']}")
         self.logger.info(
             f"running {self.name} SPARQL generator "
             f"on device {device_info(self.device)}"
         )
-        self.input_tokenizer = tokenization.Tokenizer.from_config(
+        self.input_tokenizer=tokenization.Tokenizer.from_config(
             self.cfg["input_tokenizer"]
         )
         assert "output_tokenizer" in self.cfg
-        self.output_tokenizer = tokenization.Tokenizer.from_config(
+        self.output_tokenizer=tokenization.Tokenizer.from_config(
             self.cfg["output_tokenizer"]
         )
 
         # some options for inference
-        self._initial_token_ids = self.output_tokenizer.tokenize("")
-        out_pfx = self.output_tokenizer.num_prefix_tokens()
-        self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
-        self._is_encoder_decoder = isinstance(
+        self._initial_token_ids=self.output_tokenizer.tokenize("")
+        out_pfx=self.output_tokenizer.num_prefix_tokens()
+        self._initial_token_ids=self._initial_token_ids.token_ids[:out_pfx]
+        self._is_encoder_decoder=isinstance(
             self.model,
             PretrainedEncoderDecoder
         )
-        self._eos_token = self.model.eos_token
+        self._eos_token=self.model.eos_token
         assert self._eos_token is not None
-        self._eos_token_id = self.output_tokenizer.special_token_to_id(
+        self._eos_token_id=self.output_tokenizer.special_token_to_id(
             self._eos_token
         )
-        boe_token, self._boe_ids = special_token_or_token_ids(
+        boe_token, self._boe_ids=special_token_or_token_ids(
             "<boe>",
             self.output_tokenizer
         )
-        eoe_token, self._eoe_ids = special_token_or_token_ids(
+        eoe_token, self._eoe_ids=special_token_or_token_ids(
             "<eoe>",
             self.output_tokenizer
         )
-        bop_token, self._bop_ids = special_token_or_token_ids(
+        bop_token, self._bop_ids=special_token_or_token_ids(
             "<bop>",
             self.output_tokenizer
         )
-        eop_token, self._eop_ids = special_token_or_token_ids(
+        eop_token, self._eop_ids=special_token_or_token_ids(
             "<eop>",
             self.output_tokenizer
         )
-        bob_token, _ = special_token_or_token_ids(
+        bob_token, _=special_token_or_token_ids(
             "<bob>",
             self.output_tokenizer
         )
-        eob_token, _ = special_token_or_token_ids(
+        eob_token, _=special_token_or_token_ids(
             "<eob>",
             self.output_tokenizer
         )
-        bov_token, _ = special_token_or_token_ids(
+        bov_token, _=special_token_or_token_ids(
             "<bov>",
             self.output_tokenizer
         )
-        eov_token, _ = special_token_or_token_ids(
+        eov_token, _=special_token_or_token_ids(
             "<eov>",
             self.output_tokenizer
         )
-        self._bracket_special_tokens = (bob_token, eob_token)
-        self._var_special_tokens = (bov_token, eov_token)
-        self._ent_special_tokens = (boe_token, eoe_token)
-        self._prop_special_tokens = (bop_token, eop_token)
-        self._strategy = "greedy"
-        self._beam_width = 5
-        self._sample_top_k = 5
-        self._use_cache = True
+        self._bracket_special_tokens=(bob_token, eob_token)
+        self._var_special_tokens=(bov_token, eov_token)
+        self._ent_special_tokens=(boe_token, eoe_token)
+        self._prop_special_tokens=(bop_token, eop_token)
+        self._strategy="greedy"
+        self._beam_width=5
+        self._sample_top_k=5
+        self._use_cache=True
         assert self._eos_token_id is not None
 
-        self._entity_index = None
-        self._property_index = None
-        self._example_index = None
+        self._entity_index=None
+        self._property_index=None
+        self._example_index=None
 
-        self._output_conts = [
+        self._output_conts=[
             self.output_tokenizer.de_tokenize(
                 [self._eos_token_id, i, self._eos_token_id],
                 False

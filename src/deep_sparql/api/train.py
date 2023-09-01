@@ -140,6 +140,9 @@ class SPARQLGenerationTrainer(Trainer):
         return inputs, labels
 
     def _benchmark_and_checkpoint(self):
+        cfg = self.cfg["val"].get("benchmark", None)
+        if cfg is None:
+            return
         assert self.info.is_main_process, \
             "benchmark should only be run on main process"
         self.model = self.model.eval()
@@ -148,7 +151,6 @@ class SPARQLGenerationTrainer(Trainer):
             "benchmarking model on validation data"
         )
 
-        cfg = self.cfg["val"]["benchmark"]
         gen = SPARQLGenerator(
             distributed.unwrap_model(self.model),
             self.cfg,
@@ -158,7 +160,7 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("entity_index", None),
             cfg.get("property_index", None),
         )
-        gen.set_precision(self.cfg.get("precision", "fp32"))
+        gen.set_precision(self.cfg["train"].get("precision", "fp32"))
         gen.set_inference_options(
             cfg.get("search", "greedy"),
             cfg.get("beam_width", 5),
@@ -189,8 +191,8 @@ class SPARQLGenerationTrainer(Trainer):
             for item in batch.items:
                 if len(scores) + len(sparqls) >= limit:
                     break
-                question = item.data.input + ":" * \
-                    (not gen._is_encoder_decoder)
+                suffix = ":" * (not gen._is_encoder_decoder)
+                question = item.data.input + suffix
                 questions.append(question)
                 sparqls.append(item.data.target)
             outputs = gen.generate(
