@@ -158,11 +158,7 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("entity_index", None),
             cfg.get("property_index", None),
         )
-        gen.set_precision(
-            self.cfg["train"].get("mixed_precision_dtype", "fp32")
-            if self.cfg["train"].get("mixed_precision", False)
-            else "fp32"
-        )
+        gen.set_precision(self.cfg.get("precision", "fp32"))
         gen.set_inference_options(
             cfg.get("search", "greedy"),
             cfg.get("beam_width", 5),
