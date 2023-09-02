@@ -111,7 +111,7 @@ class SPARQLGenerationTrainer(Trainer):
                     print(pfx_l)
                     print(labels_np[i], labels_np[i, pfx_l - 1:])
                     print(self.input_tokenizer.de_tokenize(
-                        list(labels_np[i, pfx_l - 1:]),
+                        labels_np[i, pfx_l - 1:label_info["lengths"][i]],
                         False
                     ))
 
