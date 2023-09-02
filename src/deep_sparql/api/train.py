@@ -109,10 +109,7 @@ class SPARQLGenerationTrainer(Trainer):
                         continue
                     labels_np[i, :pfx_l - 1] = -1
                     print(pfx_l)
-                    print(self.input_tokenizer.de_tokenize(
-                        list(labels_np[i]),
-                        False
-                    ))
+                    print(labels_np[i], labels_np[i, pfx_l - 1:])
                     print(self.input_tokenizer.de_tokenize(
                         list(labels_np[i, pfx_l - 1:]),
                         False
