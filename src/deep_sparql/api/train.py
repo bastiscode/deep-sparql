@@ -108,6 +108,15 @@ class SPARQLGenerationTrainer(Trainer):
                     if pfx_l <= 0:
                         continue
                     labels_np[i, :pfx_l - 1] = -1
+                    print(pfx_l)
+                    print(self.input_tokenizer.de_tokenize(
+                        labels_np[i],
+                        False
+                    ))
+                    print(self.input_tokenizer.de_tokenize(
+                        labels_np[i, pfx_l - 1:],
+                        False
+                    ))
 
             inputs = {
                 "token_ids": torch.from_numpy(
