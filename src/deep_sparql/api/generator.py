@@ -877,7 +877,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 q,
                 [ex_str for ex_str, _ in ex],
                 kg,
-            ) + ": " * (not self._is_encoder_decoder)
+            ) + ":" * (not self._is_encoder_decoder)
             for q, ex in zip(questions, examples)
         ]
 

@@ -145,10 +145,6 @@ class SPARQLGenerationTrainer(Trainer):
         assert self.info.is_main_process, \
             "benchmark should only be run on main process"
         self.model = self.model.eval()
-        self.logger.info(
-            f"[step {self.total_step}] "
-            "benchmarking model on validation data"
-        )
 
         gen = SPARQLGenerator(
             distributed.unwrap_model(self.model),
@@ -173,6 +169,10 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("limit", self.val_loader.min_items),
             self.val_loader.min_items
         )
+        self.logger.info(
+            f"[step {self.total_step}] "
+            f"benchmarking model on {limit} validation samples"
+        )
         log_n = cfg.get("log_n_samples", 8)
         kg = cfg.get("kg", "wikidata")
         batch_size = cfg.get("batch_size", None)
@@ -190,7 +190,7 @@ class SPARQLGenerationTrainer(Trainer):
             for item in batch.items:
                 if len(scores) + len(sparqls) >= limit:
                     break
-                suffix = ": " * (not gen._is_encoder_decoder)
+                suffix = ":" * (not gen._is_encoder_decoder)
                 question = item.data.input + suffix
                 questions.append(question)
                 sparqls.append(item.data.target)
