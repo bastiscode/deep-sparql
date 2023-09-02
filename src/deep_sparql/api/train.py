@@ -108,12 +108,6 @@ class SPARQLGenerationTrainer(Trainer):
                     if pfx_l <= 0:
                         continue
                     labels_np[i, :pfx_l - 1] = -1
-                    print(pfx_l)
-                    print(labels_np[i], labels_np[i, pfx_l - 1:])
-                    print(self.input_tokenizer.de_tokenize(
-                        labels_np[i, pfx_l - 1:label_info["lengths"][i]],
-                        False
-                    ))
 
             inputs = {
                 "token_ids": torch.from_numpy(
@@ -196,7 +190,7 @@ class SPARQLGenerationTrainer(Trainer):
             for item in batch.items:
                 if len(scores) + len(sparqls) >= limit:
                     break
-                suffix = ":" * (not gen._is_encoder_decoder)
+                suffix = ": " * (not gen._is_encoder_decoder)
                 question = item.data.input + suffix
                 questions.append(question)
                 sparqls.append(item.data.target)
