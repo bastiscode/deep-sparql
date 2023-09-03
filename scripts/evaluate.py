@@ -84,8 +84,8 @@ def evaluate(args: argparse.Namespace):
         f"Query-averaged F1: {sum(f1s) / len(f1s):.2%} "
         f"({pred_invalid:,} invalid predictions, "
         f"{pred_invalid / len(f1s):.2%} | "
-        f"{pred_invalid:,} invalid targets, "
-        f"{pred_invalid / len(f1s):.2%})"
+        f"{tgt_invalid:,} invalid targets, "
+        f"{tgt_invalid / len(f1s):.2%})"
     )
 
 
