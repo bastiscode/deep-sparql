@@ -293,8 +293,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         ]
         self._initial_ent_conts = [True] * len(self._output_conts)
         self._initial_prop_conts = [True] * len(self._output_conts)
-        self._initial_ent_cont_values = [False] * len(self._output_conts)
-        self._initial_prop_cont_values = [False] * len(self._output_conts)
 
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
