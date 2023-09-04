@@ -368,19 +368,24 @@ class SPARQLGenerator(corrector.TextCorrector):
             has_value
         ) = index.batch_continuation_mask(prefixes)
 
-        for cont, value, idx in zip(
+        for cont, cont_value, value, idx in zip(
             cont_mask,
+            value_mask,
             has_value,
             pfx_indices
         ):
             state = decoding_states[state_indices[idx]]
             token_ids = state.get_obj_token_ids()
             overlap = len(longest_overlap(token_ids, end_token_ids))
+            overlap_token_id = end_token_ids[overlap]
             assert overlap < len(end_token_ids)
-            if value and overlap == 0:
-                cont[end_token_ids[overlap]] = True
-            elif state.has_value and overlap > 0:
-                cont[end_token_ids[overlap]] = True
+            valid_cont = (
+                (value and overlap == 0)
+                or
+                (state.has_value and overlap > 0)
+            )
+            cont[overlap_token_id] = valid_cont
+            cont_value[overlap_token_id] = valid_cont
 
         indices.extend(pfx_indices)
         conts.extend(cont_mask)
