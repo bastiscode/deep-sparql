@@ -61,7 +61,8 @@ class DecodingState:
         self._ent_stop = ent_stop_ids
         self._prop_start = prop_start_ids
         self._prop_stop = prop_stop_ids
-        self.has_value = False
+        self._overlap_token_id: Optional[int] = None
+        self._has_value = False
 
     def is_ent_start(self) -> bool:
         return (
@@ -93,6 +94,12 @@ class DecodingState:
     def is_prop(self) -> bool:
         return self._state == "prop"
 
+    def has_value(self) -> bool:
+        return self._has_value
+
+    def set_overlap(self, token_id: int):
+        self._overlap_token_id = token_id
+
     def is_obj(self) -> bool:
         return self._state is not None
 
@@ -102,10 +109,9 @@ class DecodingState:
     def add(
         self,
         token_id: int,
-        has_value: bool
     ):
         self._token_ids.append(token_id)
-        self.has_value = has_value
+        self._has_value = self._overlap_token_id == token_id
         if ((
                 self.is_ent()
                 and self._token_ids[-len(self._ent_stop):] == self._ent_stop
@@ -114,7 +120,8 @@ class DecodingState:
                 and self._token_ids[-len(self._prop_stop):] == self._prop_stop
         )):
             self._state = None
-            self.has_value = False
+            self._overlap_token_id = None
+            self._has_value = False
         elif (
             self._state is None
             and self._token_ids[-len(self._ent_start):] == self._ent_start
@@ -337,14 +344,12 @@ class SPARQLGenerator(corrector.TextCorrector):
         state_indices: List[int],
         filter_fn: Callable[[DecodingState], bool],
         initial_conts: List[bool],
-        initial_cont_values: List[bool],
         end_token_ids: List[int]
-    ) -> Tuple[List[int], List[List[bool]], List[List[bool]]]:
+    ) -> Tuple[List[int], List[List[bool]]]:
         # helper fn to get valid continuations
         # from a prefix index
         indices = []
         conts = []
-        cont_values = []
         pfx_indices = []
         prefixes = []
         for i, idx in enumerate(state_indices):
@@ -353,7 +358,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             token_ids = decoding_states[idx].get_obj_token_ids()
             if len(token_ids) == 0:
                 conts.append(initial_conts)
-                cont_values.append(initial_cont_values)
                 indices.append(i)
                 continue
             decoded = self.output_tokenizer.de_tokenize(
@@ -363,16 +367,11 @@ class SPARQLGenerator(corrector.TextCorrector):
             prefixes.append(decoded)
             pfx_indices.append(i)
 
-        (
-            cont_mask,
-            value_mask,
-            has_value
-        ) = index.batch_continuation_mask(prefixes)
+        cont_mask, values = index.batch_continuation_mask(prefixes)
 
-        for cont, cont_value, value, idx in zip(
+        for cont, has_value, idx in zip(
             cont_mask,
-            value_mask,
-            has_value,
+            values,
             pfx_indices
         ):
             state = decoding_states[state_indices[idx]]
@@ -381,17 +380,16 @@ class SPARQLGenerator(corrector.TextCorrector):
             overlap_token_id = end_token_ids[overlap]
             assert overlap < len(end_token_ids)
             valid_cont = (
-                (value and overlap == 0)
+                (overlap == 0 and has_value)
                 or
-                (state.has_value and overlap > 0)
+                (overlap > 0 and state.has_value())
             )
             cont[overlap_token_id] = valid_cont
-            cont_value[overlap_token_id] = valid_cont
+            state.set_overlap(overlap_token_id)
 
         indices.extend(pfx_indices)
         conts.extend(cont_mask)
-        cont_values.extend(value_mask)
-        return indices, conts, cont_values
+        return indices, conts
 
     def _index_select_fn(
         self,
@@ -401,25 +399,21 @@ class SPARQLGenerator(corrector.TextCorrector):
             scores: torch.Tensor,
             indices: List[int]
         ) -> Tuple[torch.Tensor, torch.Tensor]:
-            b, s = scores.shape
             conts = torch.ones(
                 *scores.shape,
                 dtype=torch.bool
             )
-            cont_values = [[False] * s] * b
 
             # first entities
             (
                 ent_indices,
-                ent_conts,
-                ent_values
+                ent_conts
             ) = self._get_indices_and_conts(
                 self._entity_index,
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
                 self._initial_ent_conts,
-                self._initial_ent_cont_values,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -427,21 +421,16 @@ class SPARQLGenerator(corrector.TextCorrector):
                 ent_conts = torch.tensor(ent_conts, dtype=torch.bool)
                 conts[ent_indices, :ent_conts.shape[-1]] = ent_conts
 
-            for i, values in zip(ent_indices, ent_values):
-                cont_values[i] = values + [False] * (s - len(values))
-
             # then properties
             (
                 prop_indices,
-                prop_conts,
-                prop_values
+                prop_conts
             ) = self._get_indices_and_conts(
                 self._property_index,
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
                 self._initial_prop_conts,
-                self._initial_prop_cont_values,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
@@ -449,20 +438,16 @@ class SPARQLGenerator(corrector.TextCorrector):
                 prop_conts = torch.tensor(prop_conts, dtype=torch.bool)
                 conts[prop_indices, :prop_conts.shape[-1]] = prop_conts
 
-            for i, values in zip(prop_indices, prop_values):
-                cont_values[i] = values + [False] * (s - len(values))
-
             scores[torch.logical_not(conts)] = float("-inf")
             token_ids = torch.argmax(scores, -1)
             scores = torch.gather(scores, -1, token_ids[:, None]).squeeze(-1)
 
             # update decoding states
-            for idx, token_id, has_values in zip(
+            for idx, token_id in zip(
                 indices,
-                token_ids.tolist(),
-                cont_values
+                token_ids.tolist()
             ):
-                decoding_states[idx].add(token_id, has_values[token_id])
+                decoding_states[idx].add(token_id)
 
             return token_ids, scores
 
@@ -474,12 +459,10 @@ class SPARQLGenerator(corrector.TextCorrector):
             batch_beams: List[List[Beam]],
             _: List[int]
         ) -> List[List[Beam]]:
-            b, s = scores.shape
             conts = torch.ones(
                 *scores.shape,
                 dtype=torch.bool
             )
-            cont_values = [[False] * s] * b
 
             decoding_states = []
             for beams in batch_beams:
@@ -496,13 +479,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             indices = list(range(len(decoding_states)))
 
             # first entities
-            ent_indices, ent_values, ent_conts = self._get_indices_and_conts(
+            ent_indices, ent_conts = self._get_indices_and_conts(
                 self._entity_index,
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
                 self._initial_ent_conts,
-                self._initial_ent_cont_values,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -510,26 +492,19 @@ class SPARQLGenerator(corrector.TextCorrector):
                 ent_conts = torch.tensor(ent_conts, dtype=torch.bool)
                 conts[ent_indices, :ent_conts.shape[-1]] = ent_conts
 
-            for i, values in zip(ent_indices, ent_values):
-                cont_values[i] = values + [False] * (s - len(values))
-
             # then properties
-            prop_indices, prop_values, prop_conts = self._get_indices_and_conts(
+            prop_indices, prop_conts = self._get_indices_and_conts(
                 self._property_index,
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
                 self._initial_prop_conts,
-                self._initial_prop_cont_values,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
                 prop_indices = torch.tensor(prop_indices, dtype=torch.long)
                 prop_conts = torch.tensor(prop_conts, dtype=torch.bool)
                 conts[prop_indices, :prop_conts.shape[-1]] = prop_conts
-
-            for i, values in zip(prop_indices, prop_values):
-                cont_values[i] = values + [False] * (s - len(values))
 
             scores[torch.logical_not(conts)] = float("-inf")
 
@@ -545,20 +520,17 @@ class SPARQLGenerator(corrector.TextCorrector):
             ):
                 indices = top_k.indices[batch_start:batch_start + num]
                 values = top_k.values[batch_start:batch_start + num]
-                cont_val = cont_values[batch_start:batch_start + num]
                 batch_start += num
                 # create candidates
                 candidates = []
-                for idx, (token_ids, log_probs, cont) in enumerate(zip(
+                for idx, (token_ids, log_probs) in enumerate(zip(
                     indices.tolist(),  # type: ignore
-                    values.tolist(),
-                    cont_val
+                    values.tolist()
                 )):
                     for token_id, log_p in zip(token_ids, log_probs):
                         candidates.append((
                             idx,
                             token_id,
-                            cont[token_id],
                             log_p
                         ))
                 # sort candidates by score
@@ -568,10 +540,10 @@ class SPARQLGenerator(corrector.TextCorrector):
                 )[:2 * self._beam_width]
                 # convert candidates to beams
                 candidate_beams = []
-                for idx, token_id, has_value, log_p in candidates:
+                for idx, token_id, log_p in candidates:
                     beam = Beam.from_beam(beams[idx], log_p, token_id)
                     state: DecodingState = beam.info["state"]
-                    state.add(token_id, has_value)
+                    state.add(token_id)
                     candidate_beams.append(beam)
                 batch_candidates.append(candidate_beams)
 
