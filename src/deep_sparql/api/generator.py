@@ -114,6 +114,7 @@ class DecodingState:
                 and self._token_ids[-len(self._prop_stop):] == self._prop_stop
         )):
             self._state = None
+            self.has_value = False
         elif (
             self._state is None
             and self._token_ids[-len(self._ent_start):] == self._ent_start
