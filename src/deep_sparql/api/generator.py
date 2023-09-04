@@ -358,7 +358,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             decoded = self.output_tokenizer.de_tokenize(
                 decoding_states[idx].get_obj_token_ids(),
                 False
-            ).encode("utf8")
+            ).lstrip().encode("utf8")
             prefixes.append(decoded)
             pfx_indices.append(i)
 
