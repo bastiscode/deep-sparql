@@ -291,8 +291,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             )[len(self._eos_token):-len(self._eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
-        self._initial_ent_conts = [True] * len(self._output_conts)
-        self._initial_prop_conts = [True] * len(self._output_conts)
 
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
@@ -341,7 +339,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         decoding_states: List[DecodingState],
         state_indices: List[int],
         filter_fn: Callable[[DecodingState], bool],
-        initial_conts: List[bool],
         end_token_ids: List[int]
     ) -> Tuple[List[int], List[List[bool]]]:
         # helper fn to get valid continuations
@@ -354,12 +351,8 @@ class SPARQLGenerator(corrector.TextCorrector):
             if not filter_fn(decoding_states[idx]):
                 continue
             token_ids = decoding_states[idx].get_obj_token_ids()
-            if len(token_ids) == 0:
-                conts.append(initial_conts)
-                indices.append(i)
-                continue
             decoded = self.output_tokenizer.de_tokenize(
-                decoding_states[idx].get_obj_token_ids(),
+                token_ids,
                 False
             ).lstrip().encode("utf8")
             prefixes.append(decoded)
@@ -411,7 +404,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
-                self._initial_ent_conts,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -428,7 +420,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
-                self._initial_prop_conts,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
@@ -482,7 +473,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
-                self._initial_ent_conts,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -496,7 +486,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
-                self._initial_prop_conts,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
@@ -734,36 +723,16 @@ class SPARQLGenerator(corrector.TextCorrector):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
             self._property_index.compute_memo(max_depth=2)  # type: ignore
-        if self.has_kg_indices:
-            def _initial_conts(
-                index: prefix.Vec,
-                conts: List[bytes]
-            ) -> List[bool]:
-                index.set_continuations(conts)
-                cont_mask, _ = index.continuation_mask(b"")
-                conts_stripped = [c.lstrip() for c in conts]
-                index.set_continuations(conts_stripped)
-                cont_mask_stripped, _ = index.continuation_mask(b"")
-                cont_mask = [
-                    len(cont) > 0 and (a or b)
-                    for cont, a, b in zip(
-                        conts_stripped,
-                        cont_mask,
-                        cont_mask_stripped
-                    )
-                ]
-                return cont_mask
 
-            self._initial_ent_conts = _initial_conts(
-                self._entity_index,
-                self._output_conts
+        if self.has_kg_indices:
+            self._entity_index.set_continuations(
+                self._output_conts,
+                max_depth=2
             )
-            self._entity_index.set_continuations(self._output_conts)
-            self._initial_prop_conts = _initial_conts(
-                self._property_index,
-                self._output_conts
+            self._property_index.set_continuations(
+                self._output_conts,
+                max_depth=2
             )
-            self._property_index.set_continuations(self._output_conts)
 
         if example_index is not None:
             if isinstance(example_index, str):
