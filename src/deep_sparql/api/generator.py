@@ -537,21 +537,23 @@ class SPARQLGenerator(corrector.TextCorrector):
             assert scores.ndim == 2 and scores.shape[0] == sum(num_beams)
             k = min(self._beam_width, scores.shape[1])
             top_k = torch.topk(scores, k, dim=1)
-            top_k_indices = torch.split(top_k.indices, num_beams)
-            top_k_values = torch.split(top_k.values, num_beams)
+            batch_start = 0
             batch_candidates = []
-            for beams, cont, indices, values in zip(  # type: ignore
+            for beams, num in zip(  # type: ignore
                 batch_beams,
-                cont_values,
-                top_k_indices,
-                top_k_values
+                num_beams
             ):
+                indices = top_k.indices[batch_start:batch_start + num]
+                values = top_k.values[batch_start:batch_start + num]
+                cont_val = cont_values[batch_start:batch_start + num]
+                batch_start += num
                 # create candidates
                 candidates = []
-                for idx, (token_ids, log_probs) in enumerate(zip(
+                for idx, (token_ids, log_probs, cont) in enumerate(zip(
                     indices.tolist(),  # type: ignore
-                    values.tolist())
-                ):
+                    values.tolist(),
+                    cont_val
+                )):
                     for token_id, log_p in zip(token_ids, log_probs):
                         candidates.append((
                             idx,
