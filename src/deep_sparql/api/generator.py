@@ -717,21 +717,21 @@ class SPARQLGenerator(corrector.TextCorrector):
             if isinstance(entity_index, str):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
-            self._entity_index.compute_memo(max_depth=2)  # type: ignore
+            self._entity_index.compute_memo(max_depth=3)  # type: ignore
         if property_index is not None:
             if isinstance(property_index, str):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
-            self._property_index.compute_memo(max_depth=2)  # type: ignore
+            self._property_index.compute_memo(max_depth=3)  # type: ignore
 
         if self.has_kg_indices:
             self._entity_index.set_continuations(
                 self._output_conts,
-                max_depth=2
+                max_depth=1
             )
             self._property_index.set_continuations(
                 self._output_conts,
-                max_depth=2
+                max_depth=1
             )
 
         if example_index is not None:
