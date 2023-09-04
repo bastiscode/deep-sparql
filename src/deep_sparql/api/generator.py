@@ -788,12 +788,18 @@ class SPARQLGenerator(corrector.TextCorrector):
                 ]
                 return cont_mask, value_mask
 
-            self._initial_ent_conts, self._initial_ent_cont_values = _initial_conts(
+            (
+                self._initial_ent_conts,
+                self._initial_ent_cont_values
+            ) = _initial_conts(
                 self._entity_index,
                 self._output_conts
             )
             self._entity_index.set_continuations(self._output_conts)
-            self._initial_prop_conts, self._initial_prop_cont_values = _initial_conts(
+            (
+                self._initial_prop_conts,
+                self._initial_prop_cont_values
+            ) = _initial_conts(
                 self._property_index,
                 self._output_conts
             )

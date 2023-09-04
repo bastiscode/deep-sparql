@@ -944,7 +944,7 @@
       {
         "type": "Metaspace",
         "replacement": "▁",
-        "add_prefix_space": true
+        "add_prefix_space": false
       }
     ]
   },
@@ -1005,7 +1005,7 @@
   "decoder": {
     "type": "Metaspace",
     "replacement": "▁",
-    "add_prefix_space": true
+    "add_prefix_space": false
   },
   "model": {
     "type": "Unigram",
