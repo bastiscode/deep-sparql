@@ -740,16 +740,12 @@ class SPARQLGenerator(corrector.TextCorrector):
             def _initial_conts(
                 index: prefix.Vec,
                 conts: List[bytes]
-            ) -> Tuple[List[bool], List[bool]]:
+            ) -> List[bool]:
                 index.set_continuations(conts)
-                cont_mask, value_mask, _ = index.continuation_mask(b"")
+                cont_mask, _ = index.continuation_mask(b"")
                 conts_stripped = [c.lstrip() for c in conts]
                 index.set_continuations(conts_stripped)
-                (
-                    cont_mask_stripped,
-                    value_mask_stripped,
-                    _
-                ) = index.continuation_mask(b"")
+                cont_mask_stripped, _ = index.continuation_mask(b"")
                 cont_mask = [
                     len(cont) > 0 and (a or b)
                     for cont, a, b in zip(
@@ -758,28 +754,14 @@ class SPARQLGenerator(corrector.TextCorrector):
                         cont_mask_stripped
                     )
                 ]
-                value_mask = [
-                    len(cont) > 0 and (a or b)
-                    for cont, a, b in zip(
-                        conts_stripped,
-                        value_mask,
-                        value_mask_stripped
-                    )
-                ]
-                return cont_mask, value_mask
+                return cont_mask
 
-            (
-                self._initial_ent_conts,
-                self._initial_ent_cont_values
-            ) = _initial_conts(
+            self._initial_ent_conts = _initial_conts(
                 self._entity_index,
                 self._output_conts
             )
             self._entity_index.set_continuations(self._output_conts)
-            (
-                self._initial_prop_conts,
-                self._initial_prop_cont_values
-            ) = _initial_conts(
+            self._initial_prop_conts = _initial_conts(
                 self._property_index,
                 self._output_conts
             )
