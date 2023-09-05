@@ -553,7 +553,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             enc = self.model.encode(**inputs)
             inference_kwargs["memory"] = enc
             inference_kwargs["memory_padding_mask"] = inputs["padding_mask"]
-            token_ids = self.output_tokenizer.tokenize("")
+            token_ids = self.output_tokenizer.tokenize("").token_ids
             num_pfx = self.output_tokenizer.num_prefix_tokens()
             initial_token_ids = [
                 list(token_ids[:num_pfx])
