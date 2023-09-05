@@ -44,7 +44,7 @@ def evaluate(args: argparse.Namespace):
     inputs = load_text_file(args.input)
     targets = load_text_file(args.target)
     predictions = load_text_file(args.prediction)
-    assert len(inputs) == len(targets) == len(predictions), \
+    assert len(inputs) == len(targets), \
         "expected the same number of inputs and targets"
     if not args.allow_subset:
         assert len(inputs) == len(predictions), \
