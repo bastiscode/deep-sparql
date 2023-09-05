@@ -727,11 +727,13 @@ class SPARQLGenerator(corrector.TextCorrector):
         if self.has_kg_indices:
             self._entity_index.set_continuations(
                 self._output_conts,
-                max_depth=1
+                max_depth=1,
+                with_leading_space=False
             )
             self._property_index.set_continuations(
                 self._output_conts,
-                max_depth=1
+                max_depth=1,
+                with_leading_space=False
             )
 
         if example_index is not None:
