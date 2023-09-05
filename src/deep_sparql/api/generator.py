@@ -284,13 +284,15 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._property_index = None
         self._example_index = None
 
-        self._output_conts = [
+        self._continuations = [
             self.output_tokenizer.de_tokenize(
                 [self._eos_token_id, i, self._eos_token_id],
                 False
             )[len(self._eos_token):-len(self._eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
+        self._initial_ent_mask = [True] * self.output_tokenizer.vocab_size()
+        self._initial_prop_mask = [True] * self.output_tokenizer.vocab_size()
 
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
@@ -339,31 +341,36 @@ class SPARQLGenerator(corrector.TextCorrector):
         decoding_states: List[DecodingState],
         state_indices: List[int],
         filter_fn: Callable[[DecodingState], bool],
+        initial_cont_mask: List[bool],
         end_token_ids: List[int]
     ) -> Tuple[List[int], List[List[bool]]]:
         # helper fn to get valid continuations
         # from a prefix index
         indices = []
-        conts = []
-        pfx_indices = []
+        masks = []
+        prefix_indices = []
         prefixes = []
         for i, idx in enumerate(state_indices):
             if not filter_fn(decoding_states[idx]):
                 continue
             token_ids = decoding_states[idx].get_obj_token_ids()
+            if len(token_ids) == 0:
+                masks.append(initial_cont_mask)
+                indices.append(i)
+                continue
             decoded = self.output_tokenizer.de_tokenize(
                 token_ids,
                 False
             ).lstrip().encode("utf8")
             prefixes.append(decoded)
-            pfx_indices.append(i)
+            prefix_indices.append(i)
 
-        cont_mask, values = index.batch_continuation_mask(prefixes)
+        cont_masks, values = index.batch_continuation_mask(prefixes)
 
-        for cont, has_value, idx in zip(
-            cont_mask,
+        for cont_mask, has_value, idx in zip(
+            cont_masks,
             values,
-            pfx_indices
+            prefix_indices
         ):
             state: DecodingState = decoding_states[state_indices[idx]]
             token_ids = state.get_obj_token_ids()
@@ -375,12 +382,12 @@ class SPARQLGenerator(corrector.TextCorrector):
                 or
                 (overlap > 0 and state.has_value())
             )
-            cont[overlap_token_id] = valid_cont
+            cont_mask[overlap_token_id] = valid_cont
             state.set_overlap(overlap_token_id if valid_cont else None)
 
-        indices.extend(pfx_indices)
-        conts.extend(cont_mask)
-        return indices, conts
+        indices.extend(prefix_indices)
+        masks.extend(cont_masks)
+        return indices, masks
 
     def _index_select_fn(
         self,
@@ -404,6 +411,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
+                self._initial_ent_mask,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -420,6 +428,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
+                self._initial_prop_mask,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
@@ -713,27 +722,50 @@ class SPARQLGenerator(corrector.TextCorrector):
         property_index: Optional[Union[str, prefix.Vec]] = None,
         example_index: Optional[Union[str, vector.Index]] = None,
     ) -> None:
+        def _initial_mask(
+            index: prefix.Vec,
+            continuations: List[bytes]
+        ) -> List[bool]:
+            index.set_continuations(continuations, max_depth=0)
+            cont_mask, _ = index.continuation_mask(b"")
+            stripped_continuations = [c.lstrip() for c in continuations]
+            index.set_continuations(stripped_continuations, max_depth=0)
+            stripped_cont_mask, _ = index.continuation_mask(b"")
+            return [
+                len(cont) > 0 and (a or b)
+                for cont, a, b, in zip(
+                    stripped_continuations,
+                    cont_mask,
+                    stripped_cont_mask
+                )
+            ]
+
         if entity_index is not None:
             if isinstance(entity_index, str):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
             self._entity_index.compute_memo(max_depth=3)  # type: ignore
+            self._initial_ent_mask = _initial_mask(
+                self._entity_index,
+                self._continuations
+            )
+            self._entity_index.set_continuations(
+                self._continuations,
+                max_depth=1
+            )
+
         if property_index is not None:
             if isinstance(property_index, str):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
             self._property_index.compute_memo(max_depth=3)  # type: ignore
-
-        if self.has_kg_indices:
-            self._entity_index.set_continuations(
-                self._output_conts,
-                max_depth=1,
-                with_leading_space=False
+            self._initial_prop_mask = _initial_mask(
+                self._property_index,
+                self._continuations
             )
             self._property_index.set_continuations(
-                self._output_conts,
-                max_depth=1,
-                with_leading_space=False
+                self._continuations,
+                max_depth=1
             )
 
         if example_index is not None:
