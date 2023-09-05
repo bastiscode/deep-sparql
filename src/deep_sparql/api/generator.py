@@ -236,35 +236,43 @@ class SPARQLGenerator(corrector.TextCorrector):
         )
         boe_token, self._boe_ids = special_token_or_token_ids(
             "<boe>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         eoe_token, self._eoe_ids = special_token_or_token_ids(
             "<eoe>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         bop_token, self._bop_ids = special_token_or_token_ids(
             "<bop>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         eop_token, self._eop_ids = special_token_or_token_ids(
             "<eop>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         bob_token, _ = special_token_or_token_ids(
             "<bob>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         eob_token, _ = special_token_or_token_ids(
             "<eob>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         bov_token, _ = special_token_or_token_ids(
             "<bov>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         eov_token, _ = special_token_or_token_ids(
             "<eov>",
-            self.output_tokenizer
+            self.output_tokenizer,
+            self.cfg.get("add_prefix_space", False)
         )
         self._bracket_special_tokens = (bob_token, eob_token)
         self._var_special_tokens = (bov_token, eov_token)

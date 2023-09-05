@@ -384,12 +384,15 @@ def format_qlever_result(
 
 def special_token_or_token_ids(
     s: str,
-    tok: tokenization.Tokenizer
+    tok: tokenization.Tokenizer,
+    add_prefix_space: bool = False
 ) -> Tuple[str, List[int]]:
     token_id = tok.special_token_to_id(s)
     if token_id is not None:
         return s, [token_id]
     num_pfx = tok.num_prefix_tokens()
+    if add_prefix_space:
+        num_pfx += 1
     num_sfx = tok.num_suffix_tokens()
     token_ids = tok.tokenize(s).token_ids
     token_ids = token_ids[num_pfx:len(token_ids)-num_sfx]
