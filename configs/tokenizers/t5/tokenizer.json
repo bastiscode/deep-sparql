@@ -1005,7 +1005,7 @@
   "decoder": {
     "type": "Metaspace",
     "replacement": "▁",
-    "add_prefix_space": false
+    "add_prefix_space": true
   },
   "model": {
     "type": "Unigram",
