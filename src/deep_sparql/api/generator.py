@@ -97,7 +97,7 @@ class DecodingState:
     def has_value(self) -> bool:
         return self._has_value
 
-    def set_overlap(self, token_id: int):
+    def set_overlap(self, token_id: Optional[int]):
         self._overlap_token_id = token_id
 
     def is_obj(self) -> bool:
@@ -112,6 +112,7 @@ class DecodingState:
     ):
         self._token_ids.append(token_id)
         self._has_value = self._overlap_token_id == token_id
+        self._overlap_token_id = None
         if ((
                 self.is_ent()
                 and self._token_ids[-len(self._ent_stop):] == self._ent_stop
@@ -120,7 +121,6 @@ class DecodingState:
                 and self._token_ids[-len(self._prop_stop):] == self._prop_stop
         )):
             self._state = None
-            self._overlap_token_id = None
             self._has_value = False
         elif (
             self._state is None
@@ -365,7 +365,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             values,
             pfx_indices
         ):
-            state = decoding_states[state_indices[idx]]
+            state: DecodingState = decoding_states[state_indices[idx]]
             token_ids = state.get_obj_token_ids()
             overlap = len(longest_overlap(token_ids, end_token_ids))
             overlap_token_id = end_token_ids[overlap]
@@ -376,7 +376,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 (overlap > 0 and state.has_value())
             )
             cont[overlap_token_id] = valid_cont
-            state.set_overlap(overlap_token_id)
+            state.set_overlap(overlap_token_id if valid_cont else None)
 
         indices.extend(pfx_indices)
         conts.extend(cont_mask)
