@@ -21,6 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--save-invalid", type=str, default=None)
     parser.add_argument("--save-incorrect", type=str, default=None)
     parser.add_argument("-n", "--num-processes", type=int, default=4)
+    parser.add_argument("--allow-subset", action="store_true")
     return parser.parse_args()
 
 
@@ -44,7 +45,10 @@ def evaluate(args: argparse.Namespace):
     targets = load_text_file(args.target)
     predictions = load_text_file(args.prediction)
     assert len(inputs) == len(targets) == len(predictions), \
-        "expected the same number of inputs, targets and predictions"
+        "expected the same number of inputs and targets"
+    if not args.allow_subset:
+        assert len(inputs) == len(predictions), \
+            "expected the same number of inputs and predictions"
 
     if args.save_invalid:
         delete_file_or_create_dir(args.save_invalid)
