@@ -53,7 +53,6 @@ class DecodingState:
         prop_start_ids: List[int],
         prop_stop_ids: List[int],
     ):
-        assert len(initial_token_ids) > 0
         self._token_ids = initial_token_ids
         self._state: Optional[str] = None
         self._start_idx = 0
@@ -226,9 +225,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         )
 
         # some options for inference
-        self._initial_token_ids = self.output_tokenizer.tokenize("")
-        out_pfx = self.output_tokenizer.num_prefix_tokens()
-        self._initial_token_ids = self._initial_token_ids.token_ids[:out_pfx]
         self._is_encoder_decoder = isinstance(
             self.model,
             PretrainedEncoderDecoder
@@ -321,14 +317,14 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def _initial_decoding_state(
         self,
-        initial_token_ids: Optional[List[int]]
+        initial_token_ids: List[int]
     ) -> DecodingState:
         # keep track of decoding state
         # None --> nothing
         # (ent, idx) --> entity starting at idx
         # (prop, idx) --> property starting at idx
         return DecodingState(
-            initial_token_ids or list(self._initial_token_ids),
+            initial_token_ids,
             self._boe_ids,
             self._eoe_ids,
             self._bop_ids,
@@ -557,8 +553,10 @@ class SPARQLGenerator(corrector.TextCorrector):
             enc = self.model.encode(**inputs)
             inference_kwargs["memory"] = enc
             inference_kwargs["memory_padding_mask"] = inputs["padding_mask"]
+            token_ids = self.output_tokenizer.tokenize("")
+            num_pfx = self.output_tokenizer.num_prefix_tokens()
             initial_token_ids = [
-                list(self._initial_token_ids)
+                list(token_ids[:num_pfx])
                 for _ in range(batch_size)
             ]
         else:
