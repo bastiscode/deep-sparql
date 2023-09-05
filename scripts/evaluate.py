@@ -67,7 +67,7 @@ def evaluate(args: argparse.Namespace):
                 chunksize=16
             )),
             desc="evaluating simple questions",
-            total=len(targets),
+            total=len(predictions),
             leave=False
         ):
             if args.save_invalid and f1 is None:
