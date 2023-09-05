@@ -482,6 +482,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_ent(),
+                self._initial_ent_mask,
                 self._eoe_ids
             )
             if len(ent_indices) > 0:
@@ -495,6 +496,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states,
                 indices,
                 lambda state: state.is_prop(),
+                self._initial_prop_mask,
                 self._eop_ids
             )
             if len(prop_indices) > 0:
