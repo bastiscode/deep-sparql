@@ -5,3 +5,4 @@ special:
   tokens:
     - <unk>
   pad: <unk>
+type: llama-2

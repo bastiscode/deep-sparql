@@ -5,7 +5,6 @@ seed: 22
 
 input_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
 output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
-add_prefix_space: true
 
 model: file(models/t5.yaml)
 

@@ -5,3 +5,4 @@ special:
   tokens:
     - <|endoftext|>
   pad: <|endoftext|>
+type: gpt2

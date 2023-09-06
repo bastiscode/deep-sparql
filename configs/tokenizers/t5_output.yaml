@@ -9,3 +9,4 @@ special:
   pad: <pad>
   prefix:
     - <pad>
+type: t5

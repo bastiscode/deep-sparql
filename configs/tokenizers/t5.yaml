@@ -5,3 +5,4 @@ special:
   tokens: 
     - <pad>
   pad: <pad>
+type: t5

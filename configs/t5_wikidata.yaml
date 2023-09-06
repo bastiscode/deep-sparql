@@ -5,7 +5,6 @@ seed: 22
 
 input_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)
 output_tokenizer: file(tokenizers/env(T5_TOKENIZER:t5)_output.yaml)
-add_prefix_space: true
 
 model: file(models/t5.yaml)
 
@@ -34,7 +33,6 @@ train:
     type: adamw
     lr: env(LR:0.00005)
     weight_decay: env(WEIGHT_DECAY:0.01)
-    optim_bits: eval(8 if "env(USE_8BIT:false)" == "true" else 32)
   lr_scheduler:
     type: constant_with_warmup
     warmup_steps: env(WARMUP:0.05)

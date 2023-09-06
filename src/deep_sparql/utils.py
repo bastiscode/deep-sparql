@@ -385,13 +385,15 @@ def format_qlever_result(
 def special_token_or_token_ids(
     s: str,
     tok: tokenization.Tokenizer,
-    add_prefix_space: bool = False
+    tokenizer_type: str
 ) -> Tuple[str, List[int]]:
-    token_id = tok.special_token_to_id(s)
+    assert tokenizer_type in {"t5", "llama-2", "gpt2"}
+    token_id = tok.special_token_to_id(s.strip())
     if token_id is not None:
         return s, [token_id]
     num_pfx = tok.num_prefix_tokens()
-    if add_prefix_space:
+    if tokenizer_type == "t5":
+        # t5 tokenizer adds prefix space, which we ignore
         num_pfx += 1
     num_sfx = tok.num_suffix_tokens()
     token_ids = tok.tokenize(s).token_ids

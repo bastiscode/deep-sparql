@@ -9,3 +9,4 @@ special:
   pad: <unk>
   suffix:
     - </s>
+type: llama-2
