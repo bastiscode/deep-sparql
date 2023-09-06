@@ -34,10 +34,9 @@ train:
     type: adamw
     lr: env(LR:0.00005)
     weight_decay: env(WEIGHT_DECAY:0.01)
-    optim_bits: eval(8 if "env(USE_8BIT:false)" == "true" else 32)
   lr_scheduler:
-    type: constant_with_warmup
-    warmup_steps: env(WARMUP:0.05)
+    type: cont_sqrt_with_warmup
+    warmup_steps: eval(int(40454 * env(NUM_EPOCHS:1) * env(WARMUP:0.05) / env(BATCH_LIMIT:8)))
   data:
     strategy: weighted
     shuffle: true
@@ -64,12 +63,4 @@ val:
   data: 
     - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
   cooldown: env(COOLDOWN:0.05)
-  benchmark:
-    limit: env(BENCHMARK_LIMIT:128)
-    entity_index: data/prefix-index/wikidata-t5-entities.bin
-    property_index: data/prefix-index/wikidata-t5-properties.bin
-    search: env(SEARCH:beam)
-    beam_width: env(BEAM_WIDTH:4)
-    batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH:4))
-    kg: wikidata
-    log_n_samples: env(BENCHMARK_LOG_N:8)
+  benchmark: file(benchmark/env(BENCHMARK:none).yaml)
