@@ -43,7 +43,7 @@ experiment=${EXPERIMENT?"env var EXPERIMENT not found"}
 mkdir -p $experiment
 
 # TODO: change this to the path of your training script
-train_script=$(realpath $script_dir/../src/spelling_correction/api/train.py)
+train_script=$(realpath $script_dir/../src/deep_sparql/api/train.py)
 train_cmd="python3 -W ignore $train_script --config $config --experiment $experiment"
 
 # set timeout to something slightly smaller than the jobs time limit
