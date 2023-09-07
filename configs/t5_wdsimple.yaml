@@ -34,8 +34,8 @@ train:
     lr: env(LR:0.00005)
     weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
-    type: cont_sqrt_with_warmup
-    warmup_steps: eval(int(40454 * env(NUM_EPOCHS:1) * env(WARMUP:0.05) / env(BATCH_LIMIT:8)))
+    type: cosine_with_warmup
+    warmup_steps: env(WARMUP:0.05)
   data:
     strategy: weighted
     shuffle: true
@@ -45,8 +45,8 @@ train:
     buffer_size: env(BUFFER_SIZE:512)
     prefetch_factor: env(PREFETCH_FACTOR:512)
     num_threads: eval(env(THREADS:None) or len(os.sched_getaffinity(0)) // 2)
-    batch_limit: eval(env(MAX_LENGTH:512) * env(BATCH_LIMIT:8) if "env(BATCH_LIMIT_TYPE:batch_size)" == "padded_item_size" else env(BATCH_LIMIT:8))
-    batch_limit_type: env(BATCH_LIMIT_TYPE:batch_size)
+    batch_limit: env(BATCH_LIMIT:8)
+    batch_limit_type: batch_size
     pipeline:
       preprocessing: file(preprocessings/clean_and_normalize.yaml)
       tokenizer: file(tokenizers/env(T5_TOKENIZER:t5).yaml)

@@ -9,9 +9,9 @@ output_tokenizer: file(tokenizers/env(LLAMA_TOKENIZER:llama).yaml)
 model: file(models/llama.yaml)
 
 train:
-  peft: file(peft/env(PEFT:none).yaml)
+  peft: file(peft/env(PEFT:lora_llama).yaml)
   compile: env(COMPILE:false)
-  precision: env(PRECISION:fp32)
+  precision: env(PRECISION:fp16)
   clip_grad_norm: env(CLIP_GRAD_NORM:1.0)
   num_epochs: env(NUM_EPOCHS:1)
   eval_interval: eval(1 / env(EVAL_N:4))
@@ -35,8 +35,8 @@ train:
     lr: env(LR:0.00003)
     weight_decay: env(WEIGHT_DECAY:0.01)
   lr_scheduler:
-    type: cont_sqrt_with_warmup
-    warmup_steps: eval(int(40454 * env(NUM_EPOCHS:1) * env(WARMUP:0.05) / env(BATCH_LIMIT:8)))
+    type: cosine_with_warmup
+    warmup_steps: env(WARMUP:0.05)
   data:
     strategy: weighted
     shuffle: true
