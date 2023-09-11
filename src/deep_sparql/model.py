@@ -370,7 +370,10 @@ def model_from_config(
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
     elif model_type == "quantized_decoder":
-        quant = AutoGPTQForCausalLM.from_quantized(cfg["path"])
+        quant = AutoGPTQForCausalLM.from_quantized(
+            cfg["path"],
+            device="cpu"
+        )
         assert isinstance(quant.model, PreTrainedModel)
         return PretrainedDecoder(quant.model)
     else:
