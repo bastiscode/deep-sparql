@@ -57,8 +57,9 @@ def prepare(args: argparse.Namespace):
             for input, target in zip(inputs, targets):
                 if input in inputs_seen or target in targets_seen:
                     continue
-                match = q_pattern.match(input)
-                assert match is not None
+                matches = list(q_pattern.finditer(input))
+                assert len(matches) == 1
+                match = matches[0]
                 question = match.group(1)
                 example = format_example(question, target)
                 of.write(f"{question}\t{example}\n")
