@@ -9,4 +9,3 @@ special:
   pad: <|endoftext|>
   suffix:
     - <|endoftext|>
-type: gpt2

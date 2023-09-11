@@ -1,13 +1,15 @@
 import copy
 import functools
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Iterable
 
 import torch
 from torch import nn
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 
 from text_correction_utils import tokenization
 from text_correction_utils.api.trainer import ShardingPolicy
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 
 from transformers import (
@@ -41,12 +43,15 @@ class Model(nn.Module):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         raise NotImplementedError
 
-    @property
-    def eos_token(self) -> Optional[str]:
-        return None
-
     def get_sharding_policy(self) -> ShardingPolicy | None:
         return None
+
+    def quantize(
+        self,
+        examples: Iterable,
+        bits: int = 4
+    ) -> None:
+        raise NotImplementedError("quantization not supported")
 
 
 PRETRAINED_ENCODERS = [
@@ -157,10 +162,6 @@ class PretrainedEncoderDecoder(Model):
             self.model.config.use_cache = False
             self.model.gradient_checkpointing_enable()
 
-    @property
-    def eos_token(self) -> str | None:
-        return "</s>"
-
     def get_sharding_policy(self) -> ShardingPolicy | None:
         return functools.partial(
             transformer_auto_wrap_policy,
@@ -264,13 +265,6 @@ class PretrainedDecoder(Model):
         if gradient_checkpointing:
             self.model.config.use_cache = False
             self.model.gradient_checkpointing_enable()
-
-    @property
-    def eos_token(self) -> str | None:
-        if self.name.startswith("gpt2"):
-            return "<|endoftext|>"
-        else:
-            return "</s>"
 
     def get_sharding_policy(self) -> ShardingPolicy | None:
         return functools.partial(

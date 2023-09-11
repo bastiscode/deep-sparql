@@ -6,3 +6,4 @@ special:
     - <unk>
   pad: <unk>
 type: llama-2
+eos_token: </s>

@@ -229,10 +229,9 @@ class SPARQLGenerator(corrector.TextCorrector):
             self.model,
             PretrainedEncoderDecoder
         )
-        self._eos_token = self.model.eos_token
-        assert self._eos_token is not None
+        eos_token = self.cfg["output_tokenizer"]["eos_token"]
         self._eos_token_id = self.output_tokenizer.special_token_to_id(
-            self._eos_token
+            eos_token
         )
         tokenizer_type = self.cfg["output_tokenizer"]["type"]
         boe_token, self._boe_ids = special_token_or_token_ids(
@@ -293,7 +292,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             self.output_tokenizer.de_tokenize(
                 [self._eos_token_id, i, self._eos_token_id],
                 False
-            )[len(self._eos_token):-len(self._eos_token)].encode("utf8")
+            )[len(eos_token):-len(eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
         self._initial_ent_mask = [True] * self.output_tokenizer.vocab_size()

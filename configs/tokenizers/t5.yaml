@@ -6,3 +6,4 @@ special:
     - <pad>
   pad: <pad>
 type: t5
+eos_token: </s>
