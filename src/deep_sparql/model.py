@@ -1,6 +1,7 @@
 import copy
+import tempfile
 import functools
-from typing import Dict, Any, Optional, Tuple, Iterable
+from typing import Dict, Any, Optional, Tuple, List
 
 import torch
 from torch import nn
@@ -48,8 +49,9 @@ class Model(nn.Module):
 
     def quantize(
         self,
-        examples: Iterable,
-        bits: int = 4
+        scheme: str,
+        output_dir: str,
+        **kwargs: Any
     ) -> None:
         raise NotImplementedError("quantization not supported")
 
@@ -133,7 +135,6 @@ class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
         name: str,
-        use_8bit: bool = False,
         gradient_checkpointing: bool = False
     ):
         super().__init__()
@@ -141,19 +142,16 @@ class PretrainedEncoderDecoder(Model):
         if name.startswith("mt5"):
             self.model = MT5ForConditionalGeneration.from_pretrained(
                 f"google/{name}",
-                load_in_8bit=use_8bit
             )
             self.layer_cls = MT5Block
         elif name.startswith("t5") and not name.startswith("t5-v1_1"):
             self.model = T5ForConditionalGeneration.from_pretrained(
                 name,
-                load_in_8bit=use_8bit
             )
             self.layer_cls = T5Block
         else:
             self.model = T5ForConditionalGeneration.from_pretrained(
                 f"google/{name}",
-                load_in_8bit=use_8bit
             )
             self.layer_cls = T5Block
 
@@ -226,6 +224,9 @@ class PretrainedEncoderDecoder(Model):
         return logits, output.past_key_values  # type: ignore
 
 
+QUANTIZATION_SCHEMES = [
+    "w4a16"
+]
 PRETRAINED_DECODERS = [
     "gpt2",
     "gpt2-medium",
@@ -241,7 +242,7 @@ class PretrainedDecoder(Model):
     def __init__(
         self,
         name: str,
-        use_8bit: bool = False,
+        quantized: bool = False,
         gradient_checkpointing: bool = False
     ):
         super().__init__()
@@ -251,13 +252,11 @@ class PretrainedDecoder(Model):
         if name.startswith("llama"):
             self.model = LlamaForCausalLM.from_pretrained(
                 f"meta-llama/{name.capitalize()}-hf",
-                load_in_8bit=use_8bit
             )
             self.layer_cls = LlamaDecoderLayer
         else:
             self.model = GPT2LMHeadModel.from_pretrained(
                 name,
-                load_in_8bit=use_8bit
             )
             self.layer_cls = GPT2Block
 
@@ -305,6 +304,42 @@ class PretrainedDecoder(Model):
             (CausalLMOutputWithPast, CausalLMOutputWithCrossAttentions)
         )
         return output.logits, output.past_key_values  # type: ignore
+
+    def quantize(
+        self,
+        scheme: str,
+        output_dir: str,
+        examples: Optional[
+            List[Dict[str, List[int] | torch.LongTensor]]
+        ] = None,
+        batch_size: int = 16,
+        use_triton: bool = False,
+        **kwargs: Any
+    ) -> None:
+        assert scheme in QUANTIZATION_SCHEMES, \
+            f"unknown quantization scheme {scheme}, must be one of " \
+            f"{QUANTIZATION_SCHEMES}"
+        assert examples is not None
+
+        config = BaseQuantizeConfig(
+            bits=4,
+            group_size=128,
+            desc_act=False
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.model: PreTrainedModel
+            self.model.save_pretrained(tmpdir)
+            quant_model = AutoGPTQForCausalLM.from_pretrained(
+                tmpdir,
+                config
+            )
+        quant_model.quantize(
+            examples,
+            batch_size,
+            use_triton=use_triton
+        )
+        quant_model.save_quantized(output_dir)
 
 
 def model_from_config(
