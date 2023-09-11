@@ -101,15 +101,14 @@ def quantize(args: argparse.Namespace):
             "attention_mask": [1] * len(token_ids)
         })
 
-    model = gen.model
-    if isinstance(model.model, PeftModel):
-        if isinstance(model.model.base_model, (LoraModel, IA3Model)):
+    if isinstance(gen.model.model, PeftModel):
+        if isinstance(gen.model.model.base_model, (LoraModel, IA3Model)):
             print("found lora/ia3 model, merging adapters into base model")
-            model = model.model.base_model.merge_and_unload()
+            gen.model.model = gen.model.model.base_model.merge_and_unload()
         else:
             raise ValueError("unsupported peft type model")
 
-    print(f"quantizing model\n{model.model}\nwith scheme {args.scheme}")
+    print(f"quantizing model\n{gen.model.model}\nwith scheme {args.scheme}")
     os.makedirs(args.output, exist_ok=True)
     # walk through experiment dir and copy all files to
     # output dir
@@ -129,7 +128,7 @@ def quantize(args: argparse.Namespace):
         of.write(yaml.safe_dump(cfg))
 
     start = time.perf_counter()
-    model.quantize(
+    gen.model.quantize(
         args.scheme,
         os.path.join(args.output, "model"),
         examples,
