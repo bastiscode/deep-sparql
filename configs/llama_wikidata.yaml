@@ -66,5 +66,5 @@ train:
       # - file(data/wikidata_simplequestions.yaml)
 val:
   data: env(VAL_LIMIT:500)
-  cooldown: env(COOLDOWN:0.05)
+  cooldown: env(COOLDOWN:0)
   benchmark: file(benchmark/env(BENCHMARK:none).yaml)

@@ -64,13 +64,5 @@ train:
       # - file(data/wikidata_simplequestions.yaml)
 val:
   data: env(VAL_LIMIT:500)
-  cooldown: env(COOLDOWN:0.05)
-  benchmark:
-    limit: env(BENCHMARK_LIMIT:128)
-    entity_index: data/prefix-index/wikidata-llama-entities.bin
-    property_index: data/prefix-index/wikidata-llama-properties.bin
-    search: env(SEARCH:beam)
-    beam_width: env(BEAM_WIDTH:4)
-    batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH:4))
-    kg: wikidata
-    log_n_samples: env(BENCHMARK_LOG_N:8)
+  cooldown: env(COOLDOWN:0)
+  benchmark: file(benchmark/env(BENCHMARK:none).yaml)
