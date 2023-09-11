@@ -50,7 +50,7 @@ data:
 	--progress
 
 MODEL=roberta-base
-TOKENIZER=configs/tokenizers/roberta/tokenizer.json
+EX_TOKENIZER=configs/tokenizers/roberta/tokenizer.json
 BATCH_SIZE=32
 
 .PHONY: example-indices
@@ -76,7 +76,7 @@ example-indices:
 	--data data/example-index/wikidata.txt \
 	--output data/example-index/wikidata-$(MODEL) \
 	--model $(MODEL) \
-	--tokenizer $(TOKENIZER) \
+	--tokenizer $(EX_TOKENIZER) \
 	--batch-size $(BATCH_SIZE) \
 	--overwrite
 	# @echo "Building wikidata simplequestions example index"
