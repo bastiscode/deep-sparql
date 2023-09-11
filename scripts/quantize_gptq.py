@@ -110,8 +110,14 @@ def quantize(args: argparse.Namespace):
             raise ValueError("unsupported peft type model")
 
     print(f"quantizing model\n{model.model}\nwith scheme {args.scheme}")
-    shutil.copytree(args.experiment, args.output)
-    shutil.rmtree(os.path.join(args.output, "checkpoints"))
+    os.makedirs(args.output, exist_ok=True)
+    # walk through experiment dir and copy all files to
+    # output dir
+    for path in os.listdir(args.experiment):
+        full_path = os.path.join(args.experiment, path)
+        if not os.path.isfile(full_path):
+            continue
+        shutil.copy2(full_path, os.path.join(args.output, path))
 
     info = load_config(os.path.join(args.experiment, "info.yaml"))
     cfg = load_config(os.path.join(args.experiment, info["config_name"]))
