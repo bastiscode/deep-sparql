@@ -77,6 +77,7 @@ def build(args: argparse.Namespace):
         Index.build_from_iter(
             iter,
             args.model,
+            args.tokenizer,
             args.output,
             args.batch_size,
             args.num_trees,
