@@ -47,8 +47,8 @@ def parse_args() -> argparse.Namespace:
         default=32,
     )
     parser.add_argument(
-        "-t",
-        "--n-trees",
+        "-n",
+        "--num-trees",
         type=int,
         default=16,
     )
