@@ -11,4 +11,3 @@ target_modules:
   - EncDecAttention.k
   - EncDecAttention.v
   - EncDecAttention.o
-use_8bit: env(USE_8BIT:false)

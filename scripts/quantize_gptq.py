@@ -101,10 +101,17 @@ def quantize(args: argparse.Namespace):
             "attention_mask": [1] * len(token_ids)
         })
 
+    info = load_config(os.path.join(args.experiment, "info.yaml"))
+    cfg = load_config(os.path.join(args.experiment, info["config_name"]))
+    cfg["model"] = {
+        "type": "quantized_decoder",
+        "path": "relpath(model)",
+    }
     if isinstance(gen.model.model, PeftModel):
         if isinstance(gen.model.model.base_model, (LoraModel, IA3Model)):
             print("found lora/ia3 model, merging adapters into base model")
             gen.model.model = gen.model.model.base_model.merge_and_unload()
+            cfg["train"].pop("peft", None)
         else:
             raise ValueError("unsupported peft type model")
 
@@ -118,12 +125,6 @@ def quantize(args: argparse.Namespace):
             continue
         shutil.copy2(full_path, os.path.join(args.output, path))
 
-    info = load_config(os.path.join(args.experiment, "info.yaml"))
-    cfg = load_config(os.path.join(args.experiment, info["config_name"]))
-    cfg["model"] = {
-        "type": "quantized_decoder",
-        "path": "relpath(model)",
-    }
     with open(os.path.join(args.output, info["config_name"]), "w") as of:
         of.write(yaml.safe_dump(cfg))
 

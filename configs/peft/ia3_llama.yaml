@@ -1,5 +1,4 @@
 type: ia3
-use_8bit: env(USE_8BIT:false)
 target_modules: 
   - self_attn.k_proj
   - self_attn.v_proj
