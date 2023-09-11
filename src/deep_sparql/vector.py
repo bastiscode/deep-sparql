@@ -1,3 +1,4 @@
+import shutil
 from typing import Iterable, Union, List, Tuple, Dict, Any
 import os
 
@@ -29,6 +30,7 @@ class Index:
     @staticmethod
     def _load_model(
         model_name: str,
+        tokenizer_path: str,
         device: Union[str, torch.device] = "cuda",
     ) -> Tuple[Dict[str, Any], PretrainedEncoder, torch.device]:
         assert model_name in PRETRAINED_ENCODERS, "unknown model"
@@ -37,7 +39,7 @@ class Index:
         tokenizer_cfg = {
             "tokenize": {
                 "type": "huggingface",
-                "name": model_name,
+                "path": tokenizer_path,
             },
             "special": {
                 "pad": pad,
@@ -52,6 +54,7 @@ class Index:
     def build_from_iter(
         iter: Union[List[Tuple[str, str]], Iterable[Tuple[str, str]]],
         model: str,
+        tokenizer: str,
         dir: str,
         batch_size: int = 16,
         n_trees: int = 16,
@@ -65,7 +68,7 @@ class Index:
         if len(keys) == 0:
             raise ValueError("no data to index")
 
-        tokenizer_cfg, encoder, device = Index._load_model(model)
+        tokenizer_cfg, encoder, device = Index._load_model(model, tokenizer)
 
         dim = encoder.encode(
             torch.tensor([[0]], device=device, dtype=torch.long),
@@ -111,6 +114,7 @@ class Index:
         vector_index.build(n_trees, n_jobs=-1)
 
         os.makedirs(dir, exist_ok=True)
+        shutil.copy2(tokenizer, os.path.join(dir, "tokenizer.json"))
         vector_index.save(os.path.join(dir, "index.bin"))
         with open(os.path.join(dir, "config.yaml"), "w") as of:
             yml = yaml.dump({
@@ -137,6 +141,7 @@ class Index:
         vector_index.load(os.path.join(dir, "index.bin"))
         tokenizer_cfg, encoder, device = Index._load_model(
             cfg["model"],
+            os.path.join(dir, "tokenizer.json"),
             device
         )
         return Index(vector_index, items, encoder, tokenizer_cfg, device)

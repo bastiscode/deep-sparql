@@ -35,6 +35,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
     )
     parser.add_argument(
+        "-t",
+        "--tokenizer",
+        type=str,
+        required=True
+    )
+    parser.add_argument(
         "-b",
         "--batch-size",
         type=int,
