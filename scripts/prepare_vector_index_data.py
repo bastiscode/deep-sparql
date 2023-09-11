@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 def prepare(args: argparse.Namespace):
     assert len(args.inputs) == len(args.targets), \
         "expected same number of inputs and targets"
-    q_pattern = re.compile(r"question \"(.*)\"")
+    q_pattern = re.compile(r"\w+ question \"(.*)\"")
     if os.path.exists(args.output) and os.path.isfile(args.output):
         os.remove(args.output)
     inputs_seen = set()
