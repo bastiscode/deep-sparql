@@ -66,11 +66,11 @@ example-indices:
 	data/wikidata-mcwq/train_sparql.txt \
 	data/wikidata-qa-wiki/train_sparql.txt \
 	--output data/example-index/wikidata.txt
-	# @echo "Preparing wikidata simple questions example index"
-	# @python scripts/prepare_vector_index_data.py \
-	# --inputs data/wikidata-simplequestions/train_input.txt \
-	# --targets data/wikidata-simplequestions/train_sparql.txt \
-	# --output data/example-index/wikidata_simplequestions.txt
+	@echo "Preparing wikidata simple questions example index"
+	@python scripts/prepare_vector_index_data.py \
+	--inputs data/wikidata-simplequestions/train_input.txt \
+	--targets data/wikidata-simplequestions/train_sparql.txt \
+	--output data/example-index/wikidata_simplequestions.txt
 	@echo "Building wikidata example index"
 	@python scripts/build_vector_index.py \
 	--data data/example-index/wikidata.txt \
@@ -79,11 +79,14 @@ example-indices:
 	--tokenizer $(EX_TOKENIZER) \
 	--batch-size $(BATCH_SIZE) \
 	--overwrite
-	# @echo "Building wikidata simplequestions example index"
-	# @python scripts/build_vector_index.py \
-	# --data data/example-index/wikidata_simplequestions.txt \
-	# --output data/example-index/wikidata-simplequestions-$(MODEL) \
-	# --model $(MODEL) --batch-size $(BATCH_SIZE) --overwrite
+	@echo "Building wikidata simplequestions example index"
+	@python scripts/build_vector_index.py \
+	--data data/example-index/wikidata_simplequestions.txt \
+	--output data/example-index/wikidata-simplequestions-$(MODEL) \
+	--model $(MODEL) \
+	--tokenizer $(EX_TOKENIZER) \
+	--batch-size $(BATCH_SIZE) \
+	--overwrite
 
 TOKENIZER = "t5"
 
