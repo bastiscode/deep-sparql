@@ -79,7 +79,7 @@ def build(args: argparse.Namespace):
             args.model,
             args.output,
             args.batch_size,
-            args.n_trees,
+            args.num_trees,
         )
 
     if not args.interactive:
