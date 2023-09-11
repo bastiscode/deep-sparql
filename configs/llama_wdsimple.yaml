@@ -1,5 +1,5 @@
 experiment:
-  name: env(LLAMA_MODEL:llama-7b)-wdsimple
+  name: env(LLAMA_MODEL:llama-2-7b)-wdsimple
 
 seed: 22
 

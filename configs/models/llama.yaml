@@ -1,4 +1,4 @@
 type: pretrained_decoder
-name: env(LLAMA_MODEL:llama-7b)
+name: env(LLAMA_MODEL:llama-2-7b)
 use_8bit: env(USE_8BIT:false)
 gradient_checkpointing: env(GRADIENT_CHECKPOINTING:false)

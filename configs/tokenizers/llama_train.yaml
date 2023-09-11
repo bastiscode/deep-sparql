@@ -2,7 +2,7 @@
 # as end of sequence token
 tokenize:
   type: huggingface
-  name: relpath(llama-2/tokenizer.json)
+  path: relpath(llama-2/tokenizer.json)
 special:
   tokens:
     - <unk>

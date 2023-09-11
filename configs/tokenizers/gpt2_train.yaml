@@ -2,7 +2,7 @@
 # as end of sequence token
 tokenize:
   type: huggingface
-  name: relpath(gpt2/tokenizer.json)
+  path: relpath(gpt2/tokenizer.json)
 special:
   tokens:
     - <|endoftext|>
