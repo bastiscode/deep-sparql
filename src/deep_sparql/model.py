@@ -225,6 +225,7 @@ class PretrainedEncoderDecoder(Model):
 
 
 QUANTIZATION_SCHEMES = [
+    "w8a16",
     "w4a16"
 ]
 PRETRAINED_DECODERS = [
@@ -241,23 +242,24 @@ PRETRAINED_DECODERS = [
 class PretrainedDecoder(Model):
     def __init__(
         self,
-        name: str,
-        quantized: bool = False,
-        gradient_checkpointing: bool = False
+        name: str | PreTrainedModel,
+        gradient_checkpointing: bool = False,
     ):
         super().__init__()
-        assert name in PRETRAINED_DECODERS, f"unknown model {name}"
-        self.name = name
+        self.custom = isinstance(name, PreTrainedModel)
+        if self.custom:
+            assert isinstance(name, PreTrainedModel)
+            self.model = name
+            return
 
+        assert name in PRETRAINED_DECODERS, f"unknown model {name}"
         if name.startswith("llama"):
             self.model = LlamaForCausalLM.from_pretrained(
-                f"meta-llama/{name.capitalize()}-hf",
+                f"meta-llama/{name.capitalize()}-hf"
             )
             self.layer_cls = LlamaDecoderLayer
         else:
-            self.model = GPT2LMHeadModel.from_pretrained(
-                name,
-            )
+            self.model = GPT2LMHeadModel.from_pretrained(name)  # type: ignore
             self.layer_cls = GPT2Block
 
         assert isinstance(self.model, PreTrainedModel)
@@ -266,6 +268,9 @@ class PretrainedDecoder(Model):
             self.model.gradient_checkpointing_enable()
 
     def get_sharding_policy(self) -> ShardingPolicy | None:
+        if self.custom:
+            raise RuntimeError("custom model does not support sharding")
+
         return functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={
@@ -321,8 +326,15 @@ class PretrainedDecoder(Model):
             f"{QUANTIZATION_SCHEMES}"
         assert examples is not None
 
+        if scheme == "w8a16":
+            bits = 8
+        elif scheme == "w4a16":
+            bits = 4
+        else:
+            raise ValueError(f"unknown quantization scheme {scheme}")
+
         config = BaseQuantizeConfig(
-            bits=4,
+            bits=bits,
             group_size=128,
             desc_act=False
         )
@@ -337,7 +349,8 @@ class PretrainedDecoder(Model):
         quant_model.quantize(
             examples,
             batch_size,
-            use_triton=use_triton
+            use_triton=use_triton,
+            cache_examples_on_gpu=False
         )
         quant_model.save_quantized(output_dir)
 
@@ -356,5 +369,10 @@ def model_from_config(
         return PretrainedEncoderDecoder(**cfg)
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
+    elif model_type == "quantized_decoder":
+        path = cfg["path"]
+        quant = AutoGPTQForCausalLM.from_quantized(path)
+        assert isinstance(quant.model, PreTrainedModel)
+        return PretrainedDecoder(quant.model)
     else:
         raise ValueError(f"unknown model type {model_type}")
