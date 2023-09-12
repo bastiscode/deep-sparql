@@ -21,7 +21,7 @@ train:
     type: env(DIST_TYPE:DDP)
     strategy: env(DIST_SHARD:NO_SHARD)
     offload: env(DIST_OFFLOAD:false)
-    prefetch: env(DIST_PREFETCH:true)
+    prefetch: env(DIST_PREFETCH:false)
     shard_size: env(DIST_SHARD_SIZE:null)
   loss:
     type: sequence
