@@ -381,7 +381,7 @@ def model_from_config(
         assert output_tokenizer is not None
         assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
         return PretrainedEncoderDecoder(**cfg)
-    elif model_type == "custom_encoder_decoder":
+    elif model_type == "custom_pretrained_encoder_decoder":
         model = AutoModel.from_pretrained(
             cfg["path"],
             device="cpu"
@@ -389,7 +389,7 @@ def model_from_config(
         return PretrainedEncoderDecoder(model)
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
-    elif model_type == "custom_decoder":
+    elif model_type == "custom_pretrained_decoder":
         model = AutoModel.from_pretrained(
             cfg["path"],
             device="cpu"
