@@ -15,7 +15,8 @@ from text_correction_utils.api.trainer import ShardingPolicy
 
 
 from transformers import (
-    AutoModel,
+    AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,
     MT5ForConditionalGeneration,
     PreTrainedModel,
     T5ForConditionalGeneration,
@@ -384,12 +385,12 @@ def model_from_config(
         assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
         return PretrainedEncoderDecoder(**cfg)
     elif model_type == "custom_pretrained_encoder_decoder":
-        model = AutoModel.from_pretrained(cfg["path"])
+        model = AutoModelForSeq2SeqLM.from_pretrained(cfg["path"])
         return PretrainedEncoderDecoder(model)
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
     elif model_type == "custom_pretrained_decoder":
-        model = AutoModel.from_pretrained(cfg["path"])
+        model = AutoModelForCausalLM.from_pretrained(cfg["path"])
         return PretrainedDecoder(model)
     elif model_type == "quantized_decoder":
         quant = AutoGPTQForCausalLM.from_quantized(
