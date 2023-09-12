@@ -25,6 +25,7 @@ from transformers import (
     GPT2LMHeadModel
 )
 from transformers.modeling_outputs import (
+    BaseModelOutputWithPast,
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
     Seq2SeqLMOutput,
@@ -320,7 +321,8 @@ class PretrainedDecoder(Model):
         )
         assert isinstance(
             output,
-            (CausalLMOutputWithPast, CausalLMOutputWithCrossAttentions)
+            (BaseModelOutputWithPast, CausalLMOutputWithPast,
+             CausalLMOutputWithCrossAttentions)
         ), f"unexpected output type {type(output)}"
         return output.logits, output.past_key_values  # type: ignore
 
