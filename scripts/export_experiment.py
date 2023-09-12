@@ -38,6 +38,7 @@ def export(args: argparse.Namespace):
     # disable logging
     logging.disable(logging.CRITICAL)
 
+    start = time.perf_counter()
     gen = SPARQLGenerator.from_experiment(
         args.experiment,
         device="cpu"
@@ -66,7 +67,6 @@ def export(args: argparse.Namespace):
     with open(os.path.join(args.output, info["config_name"]), "w") as of:
         of.write(yaml.safe_dump(cfg))
 
-    start = time.perf_counter()
     assert isinstance(gen.model.model, PreTrainedModel)
     gen.model.model.save_pretrained(os.path.join(args.output, "model"))
     end = time.perf_counter()
