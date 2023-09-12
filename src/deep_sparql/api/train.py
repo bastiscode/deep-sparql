@@ -27,20 +27,7 @@ class SPARQLGenerationTrainer(Trainer):
         cls,
         cfg: Dict[str, Any]
     ) -> Tuple[nn.Module, ShardingPolicy | None]:
-        input_tokenizer = tokenization.Tokenizer.from_config(
-            cfg["input_tokenizer"]
-        )
-        if "output_tokenizer" in cfg:
-            output_tokenizer = tokenization.Tokenizer.from_config(
-                cfg["output_tokenizer"]
-            )
-        else:
-            output_tokenizer = None
-        model = model_from_config(
-            cfg["model"],
-            input_tokenizer,
-            output_tokenizer
-        )
+        model = model_from_config(cfg["model"])
         return model, model.get_sharding_policy()
 
     @classmethod
