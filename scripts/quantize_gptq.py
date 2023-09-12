@@ -70,9 +70,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def quantize(args: argparse.Namespace):
-    # disable logging
-    logging.disable(logging.CRITICAL)
-
     gen = SPARQLGenerator.from_experiment(
         args.experiment,
         device="cpu"

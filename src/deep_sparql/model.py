@@ -1,4 +1,5 @@
 import copy
+import os
 import tempfile
 import functools
 from typing import Dict, Any, Optional, Tuple, List
@@ -14,6 +15,7 @@ from text_correction_utils.api.trainer import ShardingPolicy
 
 
 from transformers import (
+    AutoModel,
     MT5ForConditionalGeneration,
     PreTrainedModel,
     T5ForConditionalGeneration,
@@ -70,9 +72,14 @@ PRETRAINED_ENCODERS = [
 class PretrainedEncoder(Model):
     def __init__(
         self,
-        name: str,
+        name: str | PreTrainedModel,
     ):
         super().__init__()
+        self.max_length = 512
+        if isinstance(name, PreTrainedModel):
+            self.model = name
+            return
+
         assert name in PRETRAINED_ENCODERS, f"unknown model {name}"
         self.name = name
         if name.startswith("t5"):
@@ -82,7 +89,6 @@ class PretrainedEncoder(Model):
             self.model = BertModel.from_pretrained(name)
         else:
             self.model = RobertaModel.from_pretrained(name)
-        self.max_length = 512
 
     def forward(
         self,
@@ -134,10 +140,15 @@ PRETRAINED_ENCODER_DECODERS = [
 class PretrainedEncoderDecoder(Model):
     def __init__(
         self,
-        name: str,
+        name: str | PreTrainedModel,
         gradient_checkpointing: bool = False
     ):
         super().__init__()
+        self.custom = isinstance(name, PreTrainedModel)
+        if self.custom:
+            self.model = name
+            return
+
         assert name in PRETRAINED_ENCODER_DECODERS, f"unknown model {name}"
         if name.startswith("mt5"):
             self.model = MT5ForConditionalGeneration.from_pretrained(
@@ -161,6 +172,9 @@ class PretrainedEncoderDecoder(Model):
             self.model.gradient_checkpointing_enable()
 
     def get_sharding_policy(self) -> ShardingPolicy | None:
+        if self.custom:
+            raise RuntimeError("custom model does not support sharding")
+
         return functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={
@@ -367,8 +381,20 @@ def model_from_config(
         assert output_tokenizer is not None
         assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
         return PretrainedEncoderDecoder(**cfg)
+    elif model_type == "custom_encoder_decoder":
+        model = AutoModel.from_pretrained(
+            cfg["path"],
+            device="cpu"
+        )
+        return PretrainedEncoderDecoder(model)
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
+    elif model_type == "custom_decoder":
+        model = AutoModel.from_pretrained(
+            cfg["path"],
+            device="cpu"
+        )
+        return PretrainedDecoder(model)
     elif model_type == "quantized_decoder":
         quant = AutoGPTQForCausalLM.from_quantized(
             cfg["path"],
