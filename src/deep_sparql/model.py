@@ -41,6 +41,8 @@ from transformers.models.t5.modeling_t5 import T5Block
 
 
 class Model(nn.Module):
+    model: nn.Module
+
     def forward(
         self,
         token_ids: torch.Tensor,
@@ -375,15 +377,12 @@ class PretrainedDecoder(Model):
 
 def model_from_config(
     cfg: Dict[str, Any],
-    input_tokenizer: tokenization.Tokenizer,
-    output_tokenizer: Optional[tokenization.Tokenizer],
+    device: str | int | torch.device = "cpu"
 ) -> Model:
     cfg = copy.deepcopy(cfg)
     model_type = cfg.pop("type")
 
     if model_type == "pretrained_encoder_decoder":
-        assert output_tokenizer is not None
-        assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
         return PretrainedEncoderDecoder(**cfg)
     elif model_type == "custom_pretrained_encoder_decoder":
         model = AutoModelForSeq2SeqLM.from_pretrained(cfg["path"])
@@ -396,7 +395,7 @@ def model_from_config(
     elif model_type == "quantized_decoder":
         quant = AutoGPTQForCausalLM.from_quantized(
             cfg["path"],
-            device="cpu"
+            device=device  # type: ignore
         )
         assert isinstance(quant.model, PreTrainedModel)
         return PretrainedDecoder(quant.model)

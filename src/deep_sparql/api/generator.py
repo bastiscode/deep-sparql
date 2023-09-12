@@ -165,26 +165,21 @@ class SPARQLGenerator(corrector.TextCorrector):
         return self.cfg["experiment"]["name"]
 
     @classmethod
-    def _model_from_config(cls, cfg: Dict[str, Any]) -> nn.Module:
-        input_tokenizer = tokenization.Tokenizer.from_config(
-            cfg["input_tokenizer"]
-        )
-        if "output_tokenizer" in cfg:
-            output_tokenizer = tokenization.Tokenizer.from_config(
-                cfg["output_tokenizer"]
-            )
-        else:
-            output_tokenizer = None
+    def _model_from_config(
+        cls,
+        cfg: Dict[str, Any],
+        device: str | int | torch.device
+    ) -> nn.Module:
         model = model_from_config(
             cfg["model"],
-            input_tokenizer,
-            output_tokenizer
+            device  # type: ignore
         )
         peft = cfg["train"].get("peft", None)
         if peft is not None:
+            peft_cfg = get_peft_config(peft)
             model.model = get_peft_model(
-                model.model,
-                get_peft_config(peft)
+                model.model,  # type: ignore
+                peft_cfg
             )
         return model
 
