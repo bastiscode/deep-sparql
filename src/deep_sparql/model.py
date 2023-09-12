@@ -382,18 +382,12 @@ def model_from_config(
         assert input_tokenizer.vocab_size() == output_tokenizer.vocab_size()
         return PretrainedEncoderDecoder(**cfg)
     elif model_type == "custom_pretrained_encoder_decoder":
-        model = AutoModel.from_pretrained(
-            cfg["path"],
-            device="cpu"
-        )
+        model = AutoModel.from_pretrained(cfg["path"])
         return PretrainedEncoderDecoder(model)
     elif model_type == "pretrained_decoder":
         return PretrainedDecoder(**cfg)
     elif model_type == "custom_pretrained_decoder":
-        model = AutoModel.from_pretrained(
-            cfg["path"],
-            device="cpu"
-        )
+        model = AutoModel.from_pretrained(cfg["path"])
         return PretrainedDecoder(model)
     elif model_type == "quantized_decoder":
         quant = AutoGPTQForCausalLM.from_quantized(
