@@ -336,6 +336,7 @@ class PretrainedDecoder(Model):
         ] = None,
         batch_size: int = 16,
         use_triton: bool = False,
+        cache_on_gpu: bool = True,
         **kwargs: Any
     ) -> None:
         assert scheme in QUANTIZATION_SCHEMES, \
@@ -367,7 +368,7 @@ class PretrainedDecoder(Model):
             examples,
             batch_size,
             use_triton=use_triton,
-            cache_examples_on_gpu=False
+            cache_examples_on_gpu=cache_on_gpu,
         )
         quant_model.save_quantized(output_dir)
 

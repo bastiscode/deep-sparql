@@ -66,6 +66,10 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None
     )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true"
+    )
     return parser.parse_args()
 
 
@@ -131,7 +135,8 @@ def quantize(args: argparse.Namespace):
         os.path.join(args.output, "model"),
         examples,
         args.batch_size,
-        args.use_triton
+        args.use_triton,
+        not args.no_cache
     )
     end = time.perf_counter()
     print(f"quantization took {end - start:.2f} seconds")
