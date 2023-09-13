@@ -1,7 +1,6 @@
 import argparse
 import os
 import shutil
-import logging
 import random
 import time
 import yaml

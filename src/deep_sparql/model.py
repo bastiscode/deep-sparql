@@ -353,7 +353,11 @@ class PretrainedDecoder(Model):
         else:
             raise ValueError(f"unknown quantization scheme {scheme}")
 
-        config = BaseQuantizeConfig(bits=bits)
+        config = BaseQuantizeConfig(
+            bits=bits,
+            group_size=128,
+            desc_act=False
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             self.model: PreTrainedModel
