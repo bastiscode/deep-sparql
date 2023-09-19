@@ -127,10 +127,8 @@ class SPARQLGenerationTrainer(Trainer):
 
     def _benchmark_and_checkpoint(self):
         cfg = self.cfg["val"].get("benchmark", None)
-        if cfg is None:
+        if cfg is None or not self.info.is_main_process:
             return
-        assert self.info.is_main_process, \
-            "benchmark should only be run on main process"
         self.model = self.model.eval()
 
         gen = SPARQLGenerator(
