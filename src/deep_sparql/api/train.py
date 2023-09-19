@@ -10,7 +10,7 @@ from peft import (
 )
 
 from text_correction_utils.api.trainer import ShardingPolicy, Trainer
-from text_correction_utils import tokenization, data, api, distributed
+from text_correction_utils import data, api, distributed
 
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.model import (
