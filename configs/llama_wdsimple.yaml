@@ -34,7 +34,7 @@ train:
     type: adamw
     lr: env(LR:0.00003)
     weight_decay: env(WEIGHT_DECAY:0.01)
-    fused: eval("env(DIST_TYPE:DDP)" == "DDP")
+    fused: env(FUSED:false)
     foreach: env(FOREACH:null)
   lr_scheduler:
     type: cosine_with_warmup
