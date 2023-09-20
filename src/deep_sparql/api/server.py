@@ -127,12 +127,17 @@ class SPARQLServer(TextCorrectionServer):
                         "input": questions,
                         "raw": generated,
                         "runtime": {"b": b, "s": s},
-                        "special_tokens": {
-                            "var": cor._var_special_tokens,
-                            "ent": cor._ent_special_tokens,
-                            "prop": cor._prop_special_tokens,
-                            "bracket": cor._bracket_special_tokens
-                        }
+                        "special_tokens": [
+                            {"token": token.strip(), "replacement": rep}
+                            for token, rep in zip(
+                                cor._var_special_tokens +
+                                cor._ent_special_tokens +
+                                cor._prop_special_tokens +
+                                cor._bracket_special_tokens,
+                                ["<bov>", "<eov>", "<boe>", "<eoe>",
+                                    "<bop>", "<eop>", "{", "}"]
+                            )
+                        ]
                     }
                     if cor.has_kg_indices:
                         output["sparql"] = sparql
