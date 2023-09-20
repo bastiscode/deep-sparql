@@ -90,9 +90,9 @@ example-indices:
 
 TOKENIZER = "t5"
 
-.PHONY: prefix-indices
-prefix-indices:
-	@echo "Creating wikidata prefix indices"
+.PHONY: tokenizer-prefix-indices
+tokenizer-prefix-indices:
+	@echo "Creating wikidata prefix indices with $(TOKENIZER) tokenizer"
 	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
 	--file data/kg-index/wikidata-properties-index.tsv \
 	--tokenizer-cfg configs/tokenizers/$(TOKENIZER).yaml \
@@ -106,8 +106,21 @@ prefix-indices:
 	--tokenizer-cfg configs/tokenizers/$(TOKENIZER).yaml \
 	--out data/prefix-index/wikidata-$(TOKENIZER)-entities-small.bin
 
+.PHONY: prefix-indices
+prefix-indices:
+	@echo "Creating wikidata prefix indices"
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
+	--file data/kg-index/wikidata-properties-index.tsv \
+	--out data/prefix-index/wikidata-properties.bin
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
+	--file data/kg-index/wikidata-entities-index.tsv \
+	--out data/prefix-index/wikidata-entities.bin
+	@python third_party/text-correction-utils/scripts/create_prefix_vec.py \
+	--file data/kg-index/wikidata-entities-small-index.tsv \
+	--out data/prefix-index/wikidata-entities-small.bin
+
 .PHONY: indices
-indices: prefix-indices example-indices
+indices: tokenizer-prefix-indices prefix-indices example-indices
 
 .PHONY: all
 all:
