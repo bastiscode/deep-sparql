@@ -210,10 +210,10 @@ def prepare_sparql_query(
     bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>"),
     kg: Optional[str] = None
 ) -> str:
+    s = replace_brackets(s, *bracket_special_tokens)
     s, _ = replace_vars(s, *var_special_tokens)
     s = replace_entities(s, entity_index, "", *entity_special_tokens)
     s = replace_properties(s, property_index, "", *property_special_tokens)
-    s = replace_brackets(s, *bracket_special_tokens)
     if kg is None or kg == "wikidata":
         prefix = wikidata_prefixes()
     elif kg == "freebase":
@@ -329,6 +329,9 @@ def add_labels(
         ]
     else:
         vars = []
+
+    if len(vars) == 0:
+        return
 
     label_vars = [f"{var}Label" for var in vars]
     label_var_str = " ".join("?" + var for var in label_vars)
