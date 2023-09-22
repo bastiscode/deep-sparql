@@ -1,8 +1,8 @@
 import copy
-import os
 import tempfile
 import functools
 from typing import Dict, Any, Optional, Tuple, List
+from text_correction_utils.api.utils import Device
 
 import torch
 from torch import nn
@@ -10,8 +10,9 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 
-from text_correction_utils import tokenization
 from text_correction_utils.api.trainer import ShardingPolicy
+from text_correction_utils.api import utils
+from torch.utils.hooks import RemovableHandle
 
 
 from transformers import (
@@ -40,8 +41,32 @@ from transformers.models.mt5.modeling_mt5 import MT5Block
 from transformers.models.t5.modeling_t5 import T5Block
 
 
+def _register_hook(
+    hooks: list[RemovableHandle],
+    m: nn.Module,
+    device: torch.device,
+):
+    m = m.to(device)
+
+    def _pre_hook(
+        m: nn.Module,
+        args: tuple,
+        kwargs: dict
+    ) -> tuple[tuple, dict]:
+        m = m.to(device)
+        return utils.to(args, device), utils.to(kwargs, device)
+
+    hook = m.register_forward_pre_hook(_pre_hook, with_kwargs=True)
+    hooks.append(hook)
+
+
 class Model(nn.Module):
     model: nn.Module
+    hooks: list[RemovableHandle]
+
+    def __init__(self):
+        super().__init__()
+        self.hooks = []
 
     def forward(
         self,
@@ -60,6 +85,13 @@ class Model(nn.Module):
         **kwargs: Any
     ) -> None:
         raise NotImplementedError("quantization not supported")
+
+    def distribute(
+        self,
+        devices: list[torch.device]
+    ) -> "Model":
+        assert len(devices) == 1, "only single device is supported"
+        return self.to(devices[0])
 
 
 PRETRAINED_ENCODERS = [
@@ -148,26 +180,27 @@ class PretrainedEncoderDecoder(Model):
         gradient_checkpointing: bool = False
     ):
         super().__init__()
-        self.custom = isinstance(name, PreTrainedModel)
-        if self.custom:
+        if isinstance(name, PreTrainedModel):
             self.model = name
-            return
-
-        assert name in PRETRAINED_ENCODER_DECODERS, f"unknown model {name}"
-        if name.startswith("mt5"):
-            self.model = MT5ForConditionalGeneration.from_pretrained(
-                f"google/{name}",
-            )
-            self.layer_cls = MT5Block
-        elif name.startswith("t5") and not name.startswith("t5-v1_1"):
-            self.model = T5ForConditionalGeneration.from_pretrained(
-                name,
-            )
-            self.layer_cls = T5Block
         else:
-            self.model = T5ForConditionalGeneration.from_pretrained(
-                f"google/{name}",
-            )
+            assert isinstance(name, str)
+            assert name in PRETRAINED_ENCODER_DECODERS, f"unknown model {name}"
+            if name.startswith("mt5"):
+                self.model = MT5ForConditionalGeneration.from_pretrained(
+                    f"google/{name}",
+                )  # type: ignore
+            elif name.startswith("t5") and not name.startswith("t5-v1_1"):
+                self.model = T5ForConditionalGeneration.from_pretrained(
+                    name,
+                )  # type: ignore
+            else:
+                self.model = T5ForConditionalGeneration.from_pretrained(
+                    f"google/{name}",
+                )  # type: ignore
+
+        if isinstance(self.model, MT5ForConditionalGeneration):
+            self.layer_cls = MT5Block
+        else:
             self.layer_cls = T5Block
 
         assert isinstance(self.model, PreTrainedModel)
@@ -176,9 +209,6 @@ class PretrainedEncoderDecoder(Model):
             self.model.gradient_checkpointing_enable()
 
     def get_sharding_policy(self) -> ShardingPolicy | None:
-        if self.custom:
-            raise RuntimeError("custom model does not support sharding")
-
         return functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={
@@ -241,6 +271,60 @@ class PretrainedEncoderDecoder(Model):
         logits = self.model.lm_head(output.last_hidden_state)  # type: ignore
         return logits, output.past_key_values  # type: ignore
 
+    def distribute(self, devices: list[torch.device]) -> "Model":
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks = []
+        assert len(devices) > 0
+        if len(devices) == 1:
+            return self.to(devices[0])
+
+        # distribute the layers
+        layers = [
+            m
+            for m in self.model.modules()
+            if isinstance(m, self.layer_cls)
+        ]
+        assert len(layers) > 0 and len(devices) <= len(layers), \
+            f"{len(devices)} devices for {len(layers)} layers not supported"
+
+        # distribute evenly among devices
+        layers_per_device = [len(layers) // len(devices)] * len(devices)
+        for i in range(len(layers) % len(devices)):
+            layers_per_device[i] += 1
+
+        last_encoder_idx = 0
+        device_idx = 0
+        for i, m in enumerate(layers):
+            _register_hook(self.hooks, m, devices[device_idx])
+            if i + 1 == len(layers) // 2:
+                last_encoder_idx = device_idx
+            if i + 1 == layers_per_device[device_idx]:
+                device_idx += 1
+
+        assert device_idx == len(devices) - 1
+        _register_hook(
+            self.hooks,
+            self.model.shared,
+            devices[0]
+        )
+        _register_hook(
+            self.hooks,
+            self.model.encoder.final_layer_norm,
+            devices[last_encoder_idx],
+        )
+        _register_hook(
+            self.hooks,
+            self.model.decoder.final_layer_norm,
+            devices[-1],
+        )
+        _register_hook(
+            self.hooks,
+            self.model.lm_head,
+            devices[-1],
+        )
+        return self
+
 
 QUANTIZATION_SCHEMES = [
     "w8a16",
@@ -264,20 +348,23 @@ class PretrainedDecoder(Model):
         gradient_checkpointing: bool = False,
     ):
         super().__init__()
-        self.custom = isinstance(name, PreTrainedModel)
-        if self.custom:
+        if isinstance(name, PreTrainedModel):
             assert isinstance(name, PreTrainedModel)
             self.model = name
-            return
+        else:
+            assert name in PRETRAINED_DECODERS, f"unknown model {name}"
+            if name.startswith("llama"):
+                self.model = LlamaForCausalLM.from_pretrained(
+                    f"meta-llama/{name.capitalize()}-hf"
+                )  # type: ignore
+            else:
+                self.model = GPT2LMHeadModel.from_pretrained(
+                    name
+                )  # type: ignore
 
-        assert name in PRETRAINED_DECODERS, f"unknown model {name}"
-        if name.startswith("llama"):
-            self.model = LlamaForCausalLM.from_pretrained(
-                f"meta-llama/{name.capitalize()}-hf"
-            )
+        if isinstance(self.model, LlamaForCausalLM):
             self.layer_cls = LlamaDecoderLayer
         else:
-            self.model = GPT2LMHeadModel.from_pretrained(name)  # type: ignore
             self.layer_cls = GPT2Block
 
         assert isinstance(self.model, PreTrainedModel)
@@ -286,9 +373,6 @@ class PretrainedDecoder(Model):
             self.model.gradient_checkpointing_enable()
 
     def get_sharding_policy(self) -> ShardingPolicy | None:
-        if self.custom:
-            raise RuntimeError("custom model does not support sharding")
-
         return functools.partial(
             transformer_auto_wrap_policy,
             transformer_layer_cls={
@@ -328,6 +412,80 @@ class PretrainedDecoder(Model):
              CausalLMOutputWithCrossAttentions)
         ), f"unexpected output type {type(output)}"
         return output.logits, output.past_key_values  # type: ignore
+
+    def distribute(
+        self,
+        devices: list[torch.device]
+    ) -> "Model":
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks = []
+        assert len(devices) > 0
+        if len(devices) == 1:
+            return self.to(devices[0])
+
+        # distribute the layers
+        layers = [
+            m
+            for m in self.model.modules()
+            if isinstance(m, self.layer_cls)
+        ]
+        assert len(layers) > 0 and len(devices) <= len(layers), \
+            f"{len(devices)} devices for {len(layers)} layers not supported"
+
+        # distribute evenly among devices
+        layers_per_device = [len(layers) // len(devices)] * len(devices)
+        for i in range(len(layers) % len(devices)):
+            layers_per_device[i] += 1
+
+        device_idx = 0
+        for i, m in enumerate(layers):
+            _register_hook(self.hooks, m, devices[device_idx])
+            if i + 1 == layers_per_device[device_idx]:
+                device_idx += 1
+
+        assert device_idx == len(devices) - 1
+        # add additional hooks for modules outside the regular
+        # transformer layers
+        if isinstance(self.model, LlamaForCausalLM):
+            _register_hook(
+                self.hooks,
+                self.model.model.embed_tokens,
+                devices[0]
+            )
+            _register_hook(
+                self.hooks,
+                self.model.model.norm,
+                devices[-1]
+            )
+            _register_hook(
+                self.hooks,
+                self.model.lm_head,
+                devices[-1]
+            )
+        else:
+            assert isinstance(self.model, GPT2LMHeadModel)
+            _register_hook(
+                self.hooks,
+                self.model.transformer.wte,
+                devices[0]
+            )
+            _register_hook(
+                self.hooks,
+                self.model.transformer.wpe,
+                devices[0]
+            )
+            _register_hook(
+                self.hooks,
+                self.model.transformer.ln_f,
+                devices[-1]
+            )
+            _register_hook(
+                self.hooks,
+                self.model.lm_head,
+                devices[-1]
+            )
+        return self
 
     def quantize(
         self,
@@ -377,7 +535,7 @@ class PretrainedDecoder(Model):
 
 def model_from_config(
     cfg: Dict[str, Any],
-    device: str | int = "cpu"
+    device: Device
 ) -> Model:
     cfg = copy.deepcopy(cfg)
     model_type = cfg.pop("type")

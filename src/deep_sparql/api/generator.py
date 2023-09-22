@@ -11,7 +11,7 @@ from peft import get_peft_model
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
-from text_correction_utils.api.utils import device_info, get_peft_config
+from text_correction_utils.api.utils import Device, device_info, get_devices, get_peft_config
 from text_correction_utils.inference import (
     Beam,
     BeamSelectFn,
@@ -169,7 +169,7 @@ class SPARQLGenerator(corrector.TextCorrector):
     def _model_from_config(
         cls,
         cfg: Dict[str, Any],
-        device: str | int | torch.device
+        device: Device
     ) -> nn.Module:
         model = model_from_config(
             cfg["model"],
@@ -196,21 +196,20 @@ class SPARQLGenerator(corrector.TextCorrector):
         lang_cfg = self.cfg["input_tokenizer"].get("language")
         if lang_cfg is None:
             return None
-        else:
-            return lang_cfg["languages"]
+        return lang_cfg["languages"]
 
     def __init__(
         self,
         model: Model,
         cfg: Dict[str, Any],
-        device: torch.device,
+        device: Device
     ) -> None:
         super().__init__(model, cfg, device)
         assert isinstance(model, (PretrainedDecoder, PretrainedEncoderDecoder))
         self.logger.debug(f"got model config:\n{self.cfg['model']}")
         self.logger.info(
             f"running {self.name} SPARQL generator "
-            f"on device {device_info(self.device)}"
+            f"on devices {[device_info(d) for d in self.devices]}"
         )
         self.input_tokenizer = tokenization.Tokenizer.from_config(
             self.cfg["input_tokenizer"]
@@ -299,6 +298,11 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._initial_ent_mask = [True] * self.output_tokenizer.vocab_size()
         self._initial_prop_mask = [True] * self.output_tokenizer.vocab_size()
 
+    def to(self, device: Device) -> "SPARQLGenerator":
+        self.devices = get_devices(device)
+        self.model = self.model.distribute(self.devices)
+        return self
+
     def _build_inference_loader_config(self) -> Dict[str, Any]:
         return {
             "tokenizer_config": self.cfg["input_tokenizer"],
@@ -311,11 +315,11 @@ class SPARQLGenerator(corrector.TextCorrector):
             return {
                 "token_ids": torch.from_numpy(token_ids_np).to(
                     non_blocking=True,
-                    device=self.device
+                    device=self.devices[0]
                 ),
                 "padding_mask": torch.from_numpy(pad_mask_np).to(
                     non_blocking=True,
-                    device=self.device
+                    device=self.devices[0]
                 )
             }
         else:
@@ -645,7 +649,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 pad_token_id=self.output_tokenizer.pad_token_id(),
                 max_length=self.max_length,
                 stop_fn=beam_stop_fn,
-                device=self.device,
+                device=self.devices[0],
                 normalize_by_length=True,
                 alpha=1.0,
                 beam_width=self._beam_width,
@@ -678,7 +682,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 max_length=self.max_length,
                 select_fn=select_fn,
                 stop_fn=stop_fn,
-                device=self.device,
+                device=self.devices[0],
                 kwargs_select_fn=_kwargs_select_fn,
                 kwargs_update_fn=_kwargs_update_fn,
                 **inference_kwargs

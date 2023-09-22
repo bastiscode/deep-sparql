@@ -8,7 +8,7 @@ from text_correction_utils.api.server import TextCorrectionServer, Error
 from text_correction_utils.api.utils import ProgressIterator
 
 from deep_sparql.api.generator import SPARQLGenerator
-from deep_sparql.utils import format_sparql, prepare_sparql_query
+from deep_sparql.utils import format_sparql
 
 
 class SPARQLServer(TextCorrectionServer):
