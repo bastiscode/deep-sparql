@@ -32,7 +32,8 @@ from deep_sparql.model import (
 )
 from deep_sparql.utils import (
     format_input,
-    postprocess_output,
+    clean_sparql,
+    format_sparql,
     prepare_sparql_query,
     special_token_or_token_ids,
     longest_overlap
@@ -269,10 +270,15 @@ class SPARQLGenerator(corrector.TextCorrector):
             self.output_tokenizer,
             tokenizer_type
         )
-        self._bracket_special_tokens = (bob_token, eob_token)
-        self._var_special_tokens = (bov_token, eov_token)
-        self._ent_special_tokens = (boe_token, eoe_token)
-        self._prop_special_tokens = (bop_token, eop_token)
+        self._bracket_special_tokens = (
+            (bob_token, "{"),
+            (eob_token, "}"),
+        )
+        self._var_special_tokens = ((bov_token, eov_token), ("<bov>", "<eov>"))
+        self._ent_special_tokens = ((boe_token, eoe_token), ("<boe>", "<eoe>"))
+        self._prop_special_tokens = (
+            (bop_token, eop_token), ("<bop>", "<eop>")
+        )
         self._strategy = "greedy"
         self._beam_width = 5
         self._sample_top_k = 5
@@ -690,7 +696,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             )
             for output in outputs
         )
-        processed = postprocess_output(
+        processed = clean_sparql(
             merged,
             self._bracket_special_tokens,
             (
@@ -872,19 +878,17 @@ class SPARQLGenerator(corrector.TextCorrector):
     def prepare_sparql_query(
         self,
         output: str,
-        kg: Optional[str] = None
+        kg: Optional[str] = None,
+        pretty: bool = False
     ) -> str:
         if not self.has_kg_indices:
-            return output
+            return format_sparql(output, pretty=pretty)
         return prepare_sparql_query(
             output,
             self._entity_index,
             self._property_index,
-            var_special_tokens=self._var_special_tokens,
-            entity_special_tokens=self._ent_special_tokens,
-            property_special_tokens=self._prop_special_tokens,
-            bracket_special_tokens=self._bracket_special_tokens,
-            kg=kg
+            kg=kg,
+            pretty=pretty
         )
 
     def prepare_questions(

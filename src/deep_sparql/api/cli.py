@@ -11,6 +11,7 @@ from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.api.server import SPARQLServer
 from deep_sparql.utils import (
     query_qlever,
+    format_sparql,
     format_qlever_result,
     add_labels
 )
@@ -25,15 +26,18 @@ class SPARQLCli(TextCorrectionCli):
 
     def format_output(self, item: data.InferenceData) -> Iterable[str]:
         self.cor: SPARQLGenerator
-        if not self.cor.has_kg_indices:
-            yield item.text
-            return
-        query = self.cor.prepare_sparql_query(item.text)
-        if not self.args.execute and not self.args.execute_with_labels:
+        execute = self.args.execute or self.args.execute_with_labels
+        execute = execute and self.cor.has_kg_indices
+        query = self.cor.prepare_sparql_query(
+            item.text,
+            self.args.kg,
+            execute or self.args.correct is not None
+        )
+        if not execute:
             yield query
             return
 
-        yield f"Output:\n{item.text}\n"
+        yield f"Output:\n{format_sparql(item.text, pretty=True)}\n"
         yield f"Query:\n{query}\n"
         try:
             result = query_qlever(query)

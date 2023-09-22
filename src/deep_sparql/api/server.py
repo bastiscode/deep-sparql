@@ -8,7 +8,7 @@ from text_correction_utils.api.server import TextCorrectionServer, Error
 from text_correction_utils.api.utils import ProgressIterator
 
 from deep_sparql.api.generator import SPARQLGenerator
-from deep_sparql.utils import prepare_sparql_query
+from deep_sparql.utils import format_sparql, prepare_sparql_query
 
 
 class SPARQLServer(TextCorrectionServer):
@@ -104,18 +104,13 @@ class SPARQLServer(TextCorrectionServer):
                         iter,
                         raw=True
                     ):
-                        generated.append(item.text)
+                        generated.append(format_sparql(item.text, pretty=True))
                         if not cor.has_kg_indices:
                             continue
-                        indices = cor.get_kg_indices()
-                        assert indices is not None
-                        query = prepare_sparql_query(
+                        query = cor.prepare_sparql_query(
                             item.text,
-                            *indices,
-                            var_special_tokens=cor._var_special_tokens,
-                            entity_special_tokens=cor._ent_special_tokens,
-                            property_special_tokens=cor._prop_special_tokens,
-                            bracket_special_tokens=cor._bracket_special_tokens
+                            kg=kg,
+                            pretty=True
                         )
                         sparql.append(query)
 
@@ -127,17 +122,6 @@ class SPARQLServer(TextCorrectionServer):
                         "input": questions,
                         "raw": generated,
                         "runtime": {"b": b, "s": s},
-                        "special_tokens": [
-                            {"token": token.strip(), "replacement": rep}
-                            for token, rep in zip(
-                                cor._var_special_tokens +
-                                cor._ent_special_tokens +
-                                cor._prop_special_tokens +
-                                cor._bracket_special_tokens,
-                                ["<bov>", "<eov>", "<boe>", "<eoe>",
-                                    "<bop>", "<eop>", "{", "}"]
-                            )
-                        ]
                     }
                     if cor.has_kg_indices:
                         output["sparql"] = sparql

@@ -102,74 +102,49 @@ def replace_vars(
 def replace_entities(
     s: str,
     index: prefix.Vec,
-    prefix: str = "",
-    open: str = "<bop>",
-    close: str = "<eop>"
+    open: str = "<boe>",
+    close: str = "<eoe>"
 ) -> str:
     return _replace(
         s,
         f"{open}(.+?){close}",
-        lambda e: f"{prefix}{index.get(e.strip().encode('utf8'))}"
+        lambda e: f"{index.get(e.encode('utf8'))}"
     )[0]
 
 
 def replace_properties(
     s: str,
     index: prefix.Vec,
-    prefix: str = "",
     open: str = "<bop>",
     close: str = "<eop>"
 ) -> str:
     return _replace(
         s,
         f"{open}(.+?){close}",
-        lambda p: f"{prefix}{index.get(p.strip().encode('utf8'))}"
+        lambda p: f"{index.get(p.encode('utf8'))}"
     )[0]
 
 
-def replace_brackets(
-    s: str,
-    open: str = "<bob>",
-    close: str = "<eob>"
-) -> str:
-    return s.replace(open, "{").replace(close, "}")
+TOKEN_PAIR = Tuple[str, str]
 
 
-def postprocess_output(
+def clean_sparql(
     s: str,
-    special_tokens: Tuple[str, ...] = (
-        "<bob>",
-        "<eob>",
+    special_tokens: Tuple[Tuple[str, str], ...] = (
+        ("<bob>", "{"),
+        ("<eob>", "}"),
     ),
-    special_token_pairs: Tuple[Tuple[str, str], ...] = (
-        ("<bov>", "<eov>"),
-        ("<bop>", "<eop>"),
-        ("<boe>", "<eoe>"),
-    )
+    special_token_pairs: Tuple[Tuple[TOKEN_PAIR, TOKEN_PAIR], ...] = ()
 ) -> str:
-    escaped_special_tokens = []
-    for tok in special_tokens:
-        escaped_special_tokens.append(re.escape(tok))
-    escaped_pairs = []
-    for first, second in special_token_pairs:
-        escaped_pairs.append(re.escape(first))
-        escaped_pairs.append(re.escape(second))
-    tokens = "|".join(set(escaped_special_tokens + escaped_pairs))
-    s = _replace(
-        s,
-        f"({tokens})",
-        lambda p: f" {p.strip()} "
-    )[0]
-    s = re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
-    for i in range(0, len(escaped_pairs), 2):
-        first = escaped_pairs[i]
-        second = escaped_pairs[i + 1]
+    for tok, rep in special_tokens:
+        s = s.replace(tok, rep)
+    for (first, second), (rep_first, rep_second) in special_token_pairs:
         s = re.sub(
-            f"({first})\\s*(.*?)\\s*({second})",
-            r"\1\2\3",
+            f"({first})(.*?)({second})",
+            lambda m: f"{rep_first}{m.group(2).strip()}{rep_second}",
             s
         )
-    return s
+    return re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
 
 
 def wikidata_prefixes() -> List[str]:
@@ -200,29 +175,199 @@ def dbpedia_prefixes() -> List[str]:
     ]
 
 
+def _insert_newlines_after_brackets_and_triples(query: str) -> str:
+    formatted = []
+    current_quote = None
+    in_literal = False
+    for c in query:
+        if c in ["'", '"'] and (current_quote is None or current_quote == c):
+            if in_literal:
+                in_literal = False
+                current_quote = None
+            else:
+                in_literal = True
+                current_quote = c
+        elif c in [".", "{"] and not in_literal:
+            c = " " * (formatted[-1] != " ") + c + "\n"
+        elif c == "}" and not in_literal:
+            c = "\n" + c + "\n"
+        formatted.append(c)
+    return "".join(formatted)
+
+
+SPARQL_KEYWORDS = [
+    "BASE",
+    "PREFIX",
+    "SELECT",
+    "DISTINCT",
+    "REDUCED",
+    "CONSTRUCT",
+    "DESCRIBE",
+    "ASK",
+    "FROM",
+    "FROM NAMED",
+    "WHERE",
+    "ORDER BY",
+    "ASC",
+    "DESC",
+    "LIMIT",
+    "OFFSET",
+    "VALUES",
+    "BIND",
+    "UNION",
+    "OPTIONAL",
+    "FILTER",
+    "GRAPH",
+    # Aggregate functions
+    "COUNT",
+    "SUM",
+    "MIN",
+    "MAX",
+    "AVG",
+    "GROUP_CONCAT",
+    "SAMPLE",
+    # Date functions
+    "YEAR",
+    "MONTH",
+    "DAY",
+    "HOURS",
+    "MINUTES",
+    "SECONDS",
+    "TIMEZONE",
+    "TZ",
+    # String functions
+    "UCASE",
+    "LCASE",
+    "STR",
+    "STRLANG",
+    "STRDT",
+    "STRSTARTS",
+    "STRENDS",
+    "STRLEN",
+    "SUBSTR",
+    "REPLACE",
+    "REGEX",
+    # Other functions and operators
+    "EXISTS",
+    "NOT EXISTS",
+    "BOUND",
+    "IF",
+    "COALESCE",
+    "RAND",
+    "ABS",
+    "ROUND",
+    "CEIL",
+    "FLOOR",
+    "URI",
+    "BNODE",
+    "MD5",
+    "SHA1",
+    "SHA256",
+    "SHA384",
+    "SHA512",
+    "NOW",
+    "UUID",
+    "STRUUID",
+    "ISURI",
+    "ISBLANK",
+    "ISLITERAL",
+    "ISNUMERIC",
+    "LANG",
+    "LANGMATCHES",
+    "DATATYPE",
+    "IRI",
+    "SAMETERM",
+    "ISIRI",
+    "ISBLANK",
+    "ISLITERAL"
+]
+
+SPARQL_NEWLINE = {
+    "PREFIX", "SELECT", "OPTIONAL", "FILTER", "ORDER BY", "GROUP BY", "LIMIT"
+}
+
+
+def _pretty_sparql_keyword(m: re.Match) -> str:
+    keyword = m.group(0)
+    return "\n" * (keyword in SPARQL_NEWLINE) + keyword.upper()
+
+
+def _pretty_format_sparql(query: str) -> str:
+    query = _insert_newlines_after_brackets_and_triples(query)
+
+    for keyword in SPARQL_KEYWORDS:
+        query = re.sub(
+            rf"{keyword}",
+            _pretty_sparql_keyword,
+            query,
+            flags=re.IGNORECASE
+        )
+
+    formatted_query = []
+    indent_level = 0
+
+    for line in query.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.startswith("}"):
+            indent_level -= 1
+        formatted_query.append("  " * indent_level + line)
+        if line.endswith("{"):
+            indent_level += 1
+
+    return "\n".join(formatted_query)
+
+
+def format_sparql(
+    sparql: str,
+    prefixes: list[str] | None = None,
+    pretty: bool = False
+) -> str:
+    # filter only for used prefixes
+    parts = []
+    for pfx in prefixes or []:
+        pfx_match = re.search(PREFIX_REGEX, pfx)
+        assert pfx_match is not None
+        pfx_short = pfx_match.group(2)
+        if f"{pfx_short}:" not in sparql:
+            continue
+        parts.append(pfx)
+
+    # pretty format sparql with correct indentation after
+    # brackets and other keywords
+    sep = " "
+    if pretty:
+        sep = "\n"
+        sparql = _pretty_format_sparql(sparql)
+
+    parts.append(sparql)
+    return sep.join(parts)
+
+
 def prepare_sparql_query(
     s: str,
     entity_index: prefix.Vec,
     property_index: prefix.Vec,
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
-    entity_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
+    entity_special_tokens: Tuple[str, str] = ("<boe>", "<eoe>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
-    bracket_special_tokens: Tuple[str, str] = ("<bob>", "<eob>"),
-    kg: Optional[str] = None
+    kg: Optional[str] = None,
+    pretty: bool = False
 ) -> str:
-    s = replace_brackets(s, *bracket_special_tokens)
     s, _ = replace_vars(s, *var_special_tokens)
-    s = replace_entities(s, entity_index, "", *entity_special_tokens)
-    s = replace_properties(s, property_index, "", *property_special_tokens)
+    s = replace_entities(s, entity_index, *entity_special_tokens)
+    s = replace_properties(s, property_index, *property_special_tokens)
     if kg is None or kg == "wikidata":
-        prefix = wikidata_prefixes()
+        prefixes = wikidata_prefixes()
     elif kg == "freebase":
-        prefix = freebase_prefixes()
+        prefixes = freebase_prefixes()
     elif kg == "dbpedia":
-        prefix = dbpedia_prefixes()
+        prefixes = dbpedia_prefixes()
     else:
         raise RuntimeError(f"unknown knowledge graph {kg}")
-    return f"{' '.join(prefix)} {s}"
+    return format_sparql(s, prefixes, pretty)
 
 
 class SPARQLRecord:
@@ -294,7 +439,7 @@ def query_qlever(
 
 
 PREFIX_REGEX = re.compile(
-    r"(prefix\s+\S+:\s*<.+>)",
+    r"(prefix\s+(\S+?):\s*<.+?>)",
     flags=re.IGNORECASE | re.DOTALL
 )
 
