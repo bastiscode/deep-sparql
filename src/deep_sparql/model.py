@@ -299,10 +299,10 @@ class PretrainedEncoderDecoder(Model):
             _register_hook(self.hooks, m, devices[device_idx])
             if i + 1 == len(layers) // 2:
                 last_encoder_idx = device_idx
-            if i + 1 == layers_per_device[device_idx]:
+            if i + 1 == sum(layers_per_device[:device_idx + 1]):
                 device_idx += 1
 
-        assert device_idx == len(devices) - 1
+        assert device_idx == len(devices)
         _register_hook(
             self.hooks,
             self.model.shared,
@@ -441,10 +441,10 @@ class PretrainedDecoder(Model):
         device_idx = 0
         for i, m in enumerate(layers):
             _register_hook(self.hooks, m, devices[device_idx])
-            if i + 1 == layers_per_device[device_idx]:
+            if i + 1 == sum(layers_per_device[:device_idx + 1]):
                 device_idx += 1
 
-        assert device_idx == len(devices) - 1
+        assert device_idx == len(devices)
         # add additional hooks for modules outside the regular
         # transformer layers
         if isinstance(self.model, LlamaForCausalLM):
