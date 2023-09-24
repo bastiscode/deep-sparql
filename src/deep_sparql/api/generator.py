@@ -11,7 +11,12 @@ from peft import get_peft_model
 from text_correction_utils import data, tokenization, prefix
 from text_correction_utils.api.corrector import ModelInfo
 from text_correction_utils.api import corrector
-from text_correction_utils.api.utils import Device, device_info, get_devices, get_peft_config
+from text_correction_utils.api.utils import (
+    Device,
+    device_info,
+    get_devices,
+    get_peft_config
+)
 from text_correction_utils.inference import (
     Beam,
     BeamSelectFn,
@@ -627,7 +632,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             if kv_cache is None:
                 return
             kwargs["kv_cache"] = tuple(
-                tuple(c[mask] for c in cache)
+                tuple(c[mask.to(c.device)] for c in cache)
                 for cache in info["kv_cache"]
             )
 
