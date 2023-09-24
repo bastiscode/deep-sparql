@@ -29,7 +29,7 @@ class SPARQLServer(TextCorrectionServer):
             else:
                 name = cfg["name"]
             cor_name = self.name_to_text_corrector[name]
-            (cor, _) = self.text_correctors[cor_name]
+            cor = self.text_correctors[cor_name]
             assert isinstance(cor, SPARQLGenerator)
             example_index = cfg.get("example_index", None)
             cor.set_indices(
