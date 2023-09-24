@@ -297,7 +297,7 @@ def _pretty_format_sparql(query: str) -> str:
 
     for keyword in SPARQL_KEYWORDS:
         query = re.sub(
-            rf"{keyword}",
+            rf"\b{keyword}\b",
             _pretty_sparql_keyword,
             query,
             flags=re.IGNORECASE
