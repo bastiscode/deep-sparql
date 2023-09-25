@@ -17,10 +17,10 @@ simple_data:
 
 .PHONY: lcquad_data
 lcquad_data:
-	@echo "Preparing simple questions"
+	@echo "Preparing lc quad"
 	@python scripts/prepare_data.py \
 	--wikidata-simple-questions third_party/KGQA-datasets/lcquad_v2 \
-	--output data/wikidata-lcquad-only \
+	--output data/wikidata-lcquad2-only \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
 	--example-index $(WD_LCQUAD_EX) \
