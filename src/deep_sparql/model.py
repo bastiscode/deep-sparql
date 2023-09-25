@@ -535,7 +535,6 @@ class PretrainedDecoder(Model):
 
 def model_from_config(
     cfg: Dict[str, Any],
-    device: Device
 ) -> Model:
     cfg = copy.deepcopy(cfg)
     model_type = cfg.pop("type")
@@ -551,7 +550,6 @@ def model_from_config(
         model = AutoModelForCausalLM.from_pretrained(cfg["path"])
         return PretrainedDecoder(model)
     elif model_type == "quantized_decoder":
-        assert device != "cpu", "quantized model must be on GPU"
         quant = AutoGPTQForCausalLM.from_quantized(
             cfg["path"]
         )
