@@ -255,7 +255,7 @@ def prepare_sparqls(
         raise RuntimeError("unknown knowledge graph")
 
     # replace variables
-    re.sub(
+    sparql = re.sub(
         VAR_REGEX,
         lambda m: surround(m.group(1), args.var_begin, args.var_end),
         sparql
