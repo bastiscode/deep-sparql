@@ -84,9 +84,9 @@ example-indices:
 	--output data/example-index/wikidata.txt
 	@echo "Preparing wikidata lcquad example index"
 	@python scripts/prepare_vector_index_data.py \
-	--inputs data/wikidata-lcquad2/train_input.txt \
-	--targets data/wikidata-lcquad2/train_sparql.txt \
-	--raws data/wikidata-lcquad2/train_raw.txt \
+	--inputs data/wikidata-lcquad2-only/train_input.txt \
+	--targets data/wikidata-lcquad2-only/train_sparql.txt \
+	--raws data/wikidata-lcquad2-only/train_raw.txt \
 	--output data/example-index/wikidata_lcquad.txt
 	@echo "Preparing wikidata simple questions example index"
 	@python scripts/prepare_vector_index_data.py \
