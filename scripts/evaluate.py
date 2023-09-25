@@ -15,20 +15,21 @@ from deep_sparql.utils import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, required=True)
+    parser.add_argument("--input", type=str, default=None)
     parser.add_argument("--target", type=str, required=True)
     parser.add_argument("--prediction", type=str, required=True)
     parser.add_argument("--save-invalid", type=str, default=None)
     parser.add_argument("--save-incorrect", type=str, default=None)
     parser.add_argument("-n", "--num-processes", type=int, default=4)
     parser.add_argument("--allow-subset", action="store_true")
+    parser.add_argument("--empty-target-invalid", action="store_true")
     return parser.parse_args()
 
 
 def calc_f1_map(
-    pred_and_target: Tuple[str, str]
+    args: Tuple[str, str, bool]
 ) -> Tuple[Optional[float], bool, bool]:
-    return calc_f1(*pred_and_target)
+    return calc_f1(*args)
 
 
 def delete_file_or_create_dir(path: str):
@@ -41,14 +42,17 @@ def delete_file_or_create_dir(path: str):
 
 
 def evaluate(args: argparse.Namespace):
-    inputs = load_text_file(args.input)
     targets = load_text_file(args.target)
     predictions = load_text_file(args.prediction)
-    assert len(inputs) == len(targets), \
-        "expected the same number of inputs and targets"
-    if not args.allow_subset:
-        assert len(inputs) == len(predictions), \
-            "expected the same number of inputs and predictions"
+    assert len(targets) == len(predictions), \
+        "expected same number of predictions and targets"
+
+    if args.save_invalid or args.save_incorrect:
+        inputs = load_text_file(args.input)
+        assert len(inputs) == len(predictions) == len(targets), \
+            "expected same number of inputs, predictions, and targets"
+    else:
+        inputs = []
 
     if args.save_invalid:
         delete_file_or_create_dir(args.save_invalid)
@@ -63,7 +67,11 @@ def evaluate(args: argparse.Namespace):
         for i, (f1, pred_inv, tgt_inv) in tqdm(
             enumerate(pool.imap(
                 calc_f1_map,
-                zip(predictions, targets),
+                zip(
+                    predictions,
+                    targets,
+                    len(targets) * [not args.invalid_empty_target]
+                ),
                 chunksize=16
             )),
             desc="evaluating simple questions",

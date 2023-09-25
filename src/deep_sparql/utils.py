@@ -621,13 +621,17 @@ def query_entities(sparql: str) -> Optional[Set[Tuple[str, ...]]]:
         return None
 
 
-def calc_f1(pred: str, target: str) -> Tuple[Optional[float], bool, bool]:
-    if pred == target:
-        return 1.0, False, False
+def calc_f1(
+    pred: str,
+    target: str,
+    allow_empty_target: bool = True
+) -> Tuple[Optional[float], bool, bool]:
     pred_set = query_entities(pred)
     target_set = query_entities(target)
     if pred_set is None or target_set is None:
         return None, pred_set is None, target_set is None
+    if len(target_set) == 0 and not allow_empty_target:
+        return None, False, True
     if len(pred_set) == 0 and len(target_set) == 0:
         return 1.0, False, False
     tp = len(pred_set.intersection(target_set))
