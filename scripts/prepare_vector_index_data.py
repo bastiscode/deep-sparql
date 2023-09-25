@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def prepare(args: argparse.Namespace):
-    assert len(args.inputs) == len(args.targets) == len(args.raw), \
+    assert len(args.inputs) == len(args.targets) == len(args.raws), \
         "expected same number of inputs, targets, and raw files"
     q_pattern = re.compile(r"\w+ question \"(.*)\"")
     if os.path.exists(args.output) and os.path.isfile(args.output):
@@ -53,7 +53,7 @@ def prepare(args: argparse.Namespace):
     for input_path, target_path, raw_path in zip(
         args.inputs,
         args.targets,
-        args.raw
+        args.raws
     ):
         inputs = io.load_text_file(input_path)
         targets = io.load_text_file(target_path)
