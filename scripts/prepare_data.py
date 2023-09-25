@@ -425,12 +425,15 @@ def prepare(args: argparse.Namespace):
                         sample.question,
                         flags=re.DOTALL
                     ).strip(),
-                    uppercase_sparql_keywords(re.sub(
-                        r"\s+",
-                        " ",
-                        sample.sparql,
-                        flags=re.DOTALL
-                    ).strip()) if has_sparql else None,
+                    uppercase_sparql_keywords(
+                        re.sub(
+                            r"\s+",
+                            " ",
+                            sample.sparql,
+                            flags=re.DOTALL
+                        ).strip(),
+                        with_new_line=False
+                    ) if has_sparql else None,
                     sample.result if not has_sparql else None
                 )
                 # skip too long questions

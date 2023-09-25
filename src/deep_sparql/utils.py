@@ -1,3 +1,4 @@
+import functools
 import re
 import requests
 from typing import Dict, List, Callable, Tuple, Optional, Set
@@ -287,16 +288,21 @@ SPARQL_NEWLINE = {
 }
 
 
-def _pretty_sparql_keyword(m: re.Match) -> str:
+def _pretty_sparql_keyword(m: re.Match, with_new_line: bool = True) -> str:
     keyword = m.group(0)
-    return "\n" * (keyword in SPARQL_NEWLINE) + keyword.upper()
+    new_line = with_new_line and keyword in SPARQL_NEWLINE
+    return "\n" * new_line + keyword.upper()
 
 
-def uppercase_sparql_keywords(query: str) -> str:
+def uppercase_sparql_keywords(query: str, with_new_line: bool = True) -> str:
+    upc_fn = functools.partial(
+        _pretty_sparql_keyword,
+        with_new_line=with_new_line
+    )
     for keyword in SPARQL_KEYWORDS:
         query = re.sub(
             rf"\b{keyword}\b",
-            _pretty_sparql_keyword,
+            upc_fn,
             query,
             flags=re.IGNORECASE
         )
