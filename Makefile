@@ -19,7 +19,7 @@ simple_data:
 lcquad_data:
 	@echo "Preparing lc quad"
 	@python scripts/prepare_data.py \
-	--wikidata-simple-questions third_party/KGQA-datasets/lcquad_v2 \
+	--lc-quad2-wikidata third_party/KGQA-datasets/lcquad_v2 \
 	--output data/wikidata-lcquad2-only \
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
