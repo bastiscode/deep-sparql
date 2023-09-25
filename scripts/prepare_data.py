@@ -173,7 +173,7 @@ def load_data(args: argparse.Namespace) -> Tuple[
                 for pq in item["paraphrased_question"]:
                     questions.append(pq)
                 for q in questions:
-                    if q is None or q.strip() == "":
+                    if q is None or q.strip() == "" or "{" in q or "}" in q:
                         continue
                     samples.append(Sample(q, sparql, None))
             output[split] = samples
