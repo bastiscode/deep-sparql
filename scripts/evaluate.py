@@ -71,7 +71,7 @@ def evaluate(args: argparse.Namespace):
                 zip(
                     predictions,
                     targets,
-                    len(targets) * [not args.invalid_empty_target]
+                    len(targets) * [not args.empty_target_invalid]
                 ),
                 chunksize=16
             )),
