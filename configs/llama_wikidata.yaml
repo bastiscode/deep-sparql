@@ -1,5 +1,5 @@
 experiment:
-  name: env(LLAMA_MODEL:llama-7b)-wikidata
+  name: env(LLAMA_MODEL:llama-7b)-env(DATA:wikidata)
 
 seed: 22
 
@@ -60,12 +60,7 @@ train:
           type: input_and_target
           separator: ": "
       postprocessing: file(postprocessings/clip.yaml)
-    sources: 
-      - file(data/lcquad.yaml)
-      - file(data/mcwq.yaml)
-      - file(data/qald10.yaml)
-      - file(data/qawiki.yaml)
-      # - file(data/wikidata_simplequestions.yaml)
+    sources: file(data/env(DATA:wikidata).yaml)
 val:
   data: env(VAL_LIMIT:500)
   cooldown: env(COOLDOWN:0)

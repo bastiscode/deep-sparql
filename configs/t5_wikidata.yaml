@@ -1,5 +1,5 @@
 experiment:
-  name: env(T5_MODEL:t5-small)-wikidata
+  name: env(T5_MODEL:t5-small)-env(DATA:wikidata)
 
 seed: 22
 
@@ -58,12 +58,7 @@ train:
         generation:
           type: target_only
       postprocessing: file(postprocessings/clip.yaml)
-    sources: 
-      - file(data/lcquad.yaml)
-      - file(data/mcwq.yaml)
-      - file(data/qald10.yaml)
-      - file(data/qawiki.yaml)
-      # - file(data/wikidata_simplequestions.yaml)
+    sources: file(data/env(DATA:wikidata).yaml)
 val:
   data: env(VAL_LIMIT:500)
   cooldown: env(COOLDOWN:0)

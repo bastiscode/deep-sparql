@@ -58,10 +58,8 @@ train:
         generation:
           type: target_only
       postprocessing: file(postprocessings/clip.yaml)
-    sources: 
-      - file(data/env(DATA_SOURCES:wikidata_simplequestions).yaml)
+    sources: file(data/wikidata_simplequestions.yaml)
 val:
-  data: 
-    - file(data/env(DATA_SOURCES:wikidata_simplequestions_val).yaml)
+  data: file(data/wikidata_simplequestions_val.yaml)
   cooldown: env(COOLDOWN:0)
   benchmark: file(benchmark/env(BENCHMARK:none).yaml)

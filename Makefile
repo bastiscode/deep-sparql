@@ -66,6 +66,11 @@ example-indices:
 	data/wikidata-mcwq/train_sparql.txt \
 	data/wikidata-qa-wiki/train_sparql.txt \
 	--output data/example-index/wikidata.txt
+	@echo "Preparing wikidata lcquad example index"
+	@python scripts/prepare_vector_index_data.py \
+	--inputs data/wikidata-lcquad2/train_input.txt \
+	--targets data/wikidata-lcquad2/train_sparql.txt \
+	--output data/example-index/wikidata_lcquad.txt
 	@echo "Preparing wikidata simple questions example index"
 	@python scripts/prepare_vector_index_data.py \
 	--inputs data/wikidata-simplequestions/train_input.txt \
@@ -75,6 +80,14 @@ example-indices:
 	@python scripts/build_vector_index.py \
 	--data data/example-index/wikidata.txt \
 	--output data/example-index/wikidata-$(MODEL) \
+	--model $(MODEL) \
+	--tokenizer $(EX_TOKENIZER) \
+	--batch-size $(BATCH_SIZE) \
+	--overwrite
+	@echo "Building wikidata lcquad example index"
+	@python scripts/build_vector_index.py \
+	--data data/example-index/wikidata_lcquad.txt \
+	--output data/example-index/wikidata-lcquad-$(MODEL) \
 	--model $(MODEL) \
 	--tokenizer $(EX_TOKENIZER) \
 	--batch-size $(BATCH_SIZE) \

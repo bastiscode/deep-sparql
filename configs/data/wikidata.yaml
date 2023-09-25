@@ -1,0 +1,4 @@
+- file(datasets/lcquad.yaml)
+- file(datasets/mcwq.yaml)
+- file(datasets/qald10.yaml)
+- file(datasets/qawiki.yaml)

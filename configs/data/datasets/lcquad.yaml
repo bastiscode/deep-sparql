@@ -1,0 +1,3 @@
+type: file_pair
+input_path: data/wikidata-lcquad2/train_inputenv(EXAMPLES:).txt
+target_path: data/wikidata-lcquad2/train_sparqlenv(EXAMPLES:).txt

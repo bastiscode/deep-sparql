@@ -12,6 +12,7 @@ models:
   # directory path (you can use special configuration operators,
   # e.g. env(ENV_VAR) to load env variables)
   - path: env(EXPERIMENT)
-    entity_index: env(SPARQL_PREFIX_INDEX)/entities.bin
-    property_index: env(SPARQL_PREFIX_INDEX)/properties.bin
-    example_index: env(SPARQL_EXAMPLE_INDEX:null)
+    device: env(DEVICE:cuda)
+    entity_index: env(ENTITY_INDEX)
+    property_index: env(PROPERTY_INDEX)
+    example_index: env(EXAMPLE_INDEX:null)

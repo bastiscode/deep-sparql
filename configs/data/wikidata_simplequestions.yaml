@@ -1,3 +1,1 @@
-type: file_pair
-input_path: data/wikidata-simplequestions/train_inputenv(EXAMPLES:).txt
-target_path: data/wikidata-simplequestions/train_sparqlenv(EXAMPLES:).txt
+- file(datasets/wikidata_simplequestions.yaml)
