@@ -174,12 +174,9 @@ class SPARQLGenerator(corrector.TextCorrector):
     def _model_from_config(
         cls,
         cfg: Dict[str, Any],
-        device: Device
+        _: Device
     ) -> nn.Module:
-        model = model_from_config(
-            cfg["model"],
-            device
-        )
+        model = model_from_config(cfg["model"])
         peft = cfg["train"].get("peft", None)
         if peft is not None:
             peft_cfg = get_peft_config(peft)
