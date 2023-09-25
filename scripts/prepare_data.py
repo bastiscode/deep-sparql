@@ -227,8 +227,8 @@ PREFIX_REGEX = re.compile(
     r"(prefix\s+\S+:\s*<.+?>)",
     flags=re.IGNORECASE | re.DOTALL
 )
-VAR_REGEX = re.compile(r"\s+(\?(\w+))")
-WIKIDATA_ENT_REGEX = re.compile(r"(wd:Q\d+)")
+VAR_REGEX = re.compile(r"\?(\w+)")
+WIKIDATA_ENT_REGEX = re.compile(r"\b(wd:Q\d+)\b")
 WIKIDATA_PROP_REGEX = re.compile(r"((?:wdt|p|pq|pqn|ps|psn):P\d+)")
 FREEBASE_ENT_REGEX = re.compile(r"(fb:m\.\w+)")
 FREEBASE_PROP_REGEX = re.compile(r"(fb:\w+\.\w+\.\w+)")
@@ -255,13 +255,11 @@ def prepare_sparqls(
         raise RuntimeError("unknown knowledge graph")
 
     # replace variables
-    for match in re.finditer(VAR_REGEX, sparql):
-        var_rep = surround(
-            match.group(2),
-            args.var_begin,
-            args.var_end
-        )
-        sparql = sparql.replace(match.group(1), var_rep)
+    re.sub(
+        VAR_REGEX,
+        lambda m: surround(m.group(1), args.var_begin, args.var_end),
+        sparql
+    )
 
     # replace brackets
     sparql = sparql.replace("{", args.bracket_begin)
