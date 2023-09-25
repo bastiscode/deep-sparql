@@ -2,6 +2,7 @@ WD_PROP=data/kg-index/wikidata-properties-index.tsv
 WD_ENT=data/kg-index/wikidata-entities-index.tsv
 WD_EX=""
 WD_SIMPLE_EX=""
+WD_LCQUAD_EX=""
 
 .PHONY: simple_data
 simple_data:
@@ -12,6 +13,17 @@ simple_data:
 	--entity-index $(WD_ENT) \
 	--property-index $(WD_PROP) \
 	--example-index $(WD_SIMPLE_EX) \
+	--progress
+
+.PHONY: lcquad_data
+lcquad_data:
+	@echo "Preparing simple questions"
+	@python scripts/prepare_data.py \
+	--wikidata-simple-questions third_party/KGQA-datasets/lcquad_v2 \
+	--output data/wikidata-lcquad-only \
+	--entity-index $(WD_ENT) \
+	--property-index $(WD_PROP) \
+	--example-index $(WD_LCQUAD_EX) \
 	--progress
 
 .PHONY: data
@@ -139,6 +151,8 @@ indices: tokenizer-prefix-indices prefix-indices example-indices
 all:
 	make data
 	make simple_data
+	make lcquad_data
 	make indices
 	make simple_data WD_SIMPLE_EX=data/example-index/wikidata-simplequestions-$(MODEL)
 	make data WD_EX=data/example-index/wikidata-$(MODEL)
+	make lcquad_data WD_LCQUAD_EX=data/example-index/wikidata-lcquad-$(MODEL)
