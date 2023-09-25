@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-gpu=8
 #SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
 #SBATCH --job-name=model
 #SBATCH --open-mode=append
-#SBATCH --output=${EXPERIMENT}/train.log
 #SBATCH --mail-type=BEGIN,END,FAIL,REQUEUE
 #SBATCH --time=24:00:00
 
