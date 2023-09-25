@@ -77,16 +77,22 @@ example-indices:
 	data/wikidata-qald10/train_sparql.txt \
 	data/wikidata-mcwq/train_sparql.txt \
 	data/wikidata-qa-wiki/train_sparql.txt \
+	--raws data/wikidata-lcquad2/train_raw.txt \
+	data/wikidata-qald10/train_raw.txt \
+	data/wikidata-mcwq/train_raw.txt \
+	data/wikidata-qa-wiki/train_raw.txt \
 	--output data/example-index/wikidata.txt
 	@echo "Preparing wikidata lcquad example index"
 	@python scripts/prepare_vector_index_data.py \
 	--inputs data/wikidata-lcquad2/train_input.txt \
 	--targets data/wikidata-lcquad2/train_sparql.txt \
+	--raws data/wikidata-lcquad2/train_raw.txt \
 	--output data/example-index/wikidata_lcquad.txt
 	@echo "Preparing wikidata simple questions example index"
 	@python scripts/prepare_vector_index_data.py \
 	--inputs data/wikidata-simplequestions/train_input.txt \
 	--targets data/wikidata-simplequestions/train_sparql.txt \
+	--raws data/wikidata-simplequestions/train_raw.txt \
 	--output data/example-index/wikidata_simplequestions.txt
 	@echo "Building wikidata example index"
 	@python scripts/build_vector_index.py \

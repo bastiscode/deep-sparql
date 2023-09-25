@@ -14,7 +14,8 @@ from deep_sparql.utils import (
     load_kg_index,
     load_inverse_index,
     wikidata_prefixes,
-    format_input
+    format_input,
+    uppercase_sparql_keywords
 )
 from deep_sparql.vector import Index, get_nearest_neighbors
 
@@ -401,10 +402,15 @@ def prepare(args: argparse.Namespace):
             args.output,
             f"{split}_{target_name}{'_examples' * has_examples}.txt"
         )
+        raw = os.path.join(
+            args.output,
+            f"{split}_raw.txt"
+        )
         print(f"found {len(samples):,} {split} samples")
         num_invalid = 0
         with open(input, "w") as inf, \
-                open(target, "w") as tf:
+                open(target, "w") as tf, \
+                open(raw, "w") as rf:
             for i, sample in enumerate(tqdm(
                 samples,
                 desc=f"processing and writing {split} samples",
@@ -419,21 +425,22 @@ def prepare(args: argparse.Namespace):
                         sample.question,
                         flags=re.DOTALL
                     ).strip(),
-                    re.sub(
+                    uppercase_sparql_keywords(re.sub(
                         r"\s+",
                         " ",
                         sample.sparql,
                         flags=re.DOTALL
-                    ).strip() if has_sparql else None,
+                    ).strip()) if has_sparql else None,
                     sample.result if not has_sparql else None
                 )
                 # skip too long questions
                 if len(sample.question) > args.max_length:
                     num_invalid += 1
                     continue
-                # test sets always contain full sparqls targets
+                # test sets always contain full sparql targets
                 # (with prefix and original kg ids) for evaluation
                 if split == "test" or not has_sparql:
+                    rf.write(sample.sparql + "\n")
                     inf.write(format_input(
                         sample.question,
                         examples[i][:args.max_num_examples],
@@ -485,6 +492,7 @@ def prepare(args: argparse.Namespace):
                         kg
                     ) + "\n")
                     tf.write(sparql + "\n")
+                    rf.write(sample.sparql + "\n")
         print(
             f"{num_invalid:,} of {len(samples):,} "
             f"({num_invalid / len(samples):.1%}) "

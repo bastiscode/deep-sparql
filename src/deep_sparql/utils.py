@@ -292,9 +292,7 @@ def _pretty_sparql_keyword(m: re.Match) -> str:
     return "\n" * (keyword in SPARQL_NEWLINE) + keyword.upper()
 
 
-def _pretty_format_sparql(query: str) -> str:
-    query = _insert_newlines_after_brackets_and_triples(query)
-
+def uppercase_sparql_keywords(query: str) -> str:
     for keyword in SPARQL_KEYWORDS:
         query = re.sub(
             rf"\b{keyword}\b",
@@ -302,6 +300,12 @@ def _pretty_format_sparql(query: str) -> str:
             query,
             flags=re.IGNORECASE
         )
+    return query
+
+
+def _pretty_format_sparql(query: str) -> str:
+    query = _insert_newlines_after_brackets_and_triples(query)
+    query = uppercase_sparql_keywords(query)
 
     formatted_query = []
     indent_level = 0
