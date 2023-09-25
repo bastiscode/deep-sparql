@@ -44,13 +44,14 @@ def delete_file_or_create_dir(path: str):
 def evaluate(args: argparse.Namespace):
     targets = load_text_file(args.target)
     predictions = load_text_file(args.prediction)
-    assert len(targets) == len(predictions), \
-        "expected same number of predictions and targets"
+    if not args.allow_subset:
+        assert len(targets) == len(predictions), \
+            "expected same number of predictions and targets"
 
     if args.save_invalid or args.save_incorrect:
         inputs = load_text_file(args.input)
-        assert len(inputs) == len(predictions) == len(targets), \
-            "expected same number of inputs, predictions, and targets"
+        assert len(inputs) == len(targets), \
+            "expected same number of inputs and targets"
     else:
         inputs = []
 
