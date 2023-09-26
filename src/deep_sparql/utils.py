@@ -159,6 +159,8 @@ def wikidata_prefixes() -> List[str]:
         "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
         "PREFIX pqn: <http://www.wikidata.org/prop/qualifier/"
         "value-normalized/>",
+        "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>",
+        "PREFIX wikibase: <http://wikiba.se/ontology#>",
     ]
 
 
@@ -174,6 +176,17 @@ def dbpedia_prefixes() -> List[str]:
         "PREFIX dbp: <http://dbpedia.org/property/>",
         "PREFIX dbr: <http://dbpedia.org/resource/>",
     ]
+
+
+def get_prefixes(kg: str = "wikidata") -> list[str]:
+    if kg == "wikidata":
+        return wikidata_prefixes()
+    elif kg == "freebase":
+        return freebase_prefixes()
+    elif kg == "dbpedia":
+        return dbpedia_prefixes()
+    else:
+        raise RuntimeError(f"unknown knowledge graph {kg}")
 
 
 def _insert_newlines_after_brackets_and_triples(query: str) -> str:
@@ -363,21 +376,13 @@ def prepare_sparql_query(
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
     entity_special_tokens: Tuple[str, str] = ("<boe>", "<eoe>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
-    kg: Optional[str] = None,
+    kg: str = "wikidata",
     pretty: bool = False
 ) -> str:
     s, _ = replace_vars(s, *var_special_tokens)
     s = replace_entities(s, entity_index, *entity_special_tokens)
     s = replace_properties(s, property_index, *property_special_tokens)
-    if kg is None or kg == "wikidata":
-        prefixes = wikidata_prefixes()
-    elif kg == "freebase":
-        prefixes = freebase_prefixes()
-    elif kg == "dbpedia":
-        prefixes = dbpedia_prefixes()
-    else:
-        raise RuntimeError(f"unknown knowledge graph {kg}")
-    return format_sparql(s, prefixes, pretty)
+    return format_sparql(s, get_prefixes(kg), pretty)
 
 
 class SPARQLRecord:
@@ -651,3 +656,29 @@ def calc_f1(
     else:
         f1 = 0.0
     return f1, False, False
+
+
+def available_properties(
+    entity: str,
+    kg: str = "wikidata",
+    lang: str = "en",
+) -> list[str] | None:
+    prefix = "\n".join(get_prefixes(kg))
+    if kg == "wikidata":
+        sparql = f"{prefix} SELECT DISTINCT ?prop WHERE {{" \
+            f"{entity} ?p ?statement . ?prop wikibase:directClaim ?p . "\
+            f"?prop rdfs:label ?label . FILTER(LANG(?label) = '{lang}') }}"
+    else:
+        raise NotImplementedError
+    try:
+        result = query_qlever(sparql, kg)
+    except Exception:
+        return None
+    if kg == "wikidata":
+        properties = []
+        for res in result.results:
+            for pfx in ["wdt", "p", "ps", "psn", "pq", "pqn"]:
+                properties.append(pfx + ":" + res["prop"].value.split("/")[-1])
+    else:
+        raise NotImplementedError
+    return properties
