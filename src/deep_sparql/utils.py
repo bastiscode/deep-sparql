@@ -442,10 +442,23 @@ class SPARQLResult:
         return f"SPARQLResult({self.vars}, {self.results})"
 
 
+def _ask_to_select(sparql: str) -> str:
+    # helper function that transforms a ASK WHERE query
+    # to a SELECT * WHERE query because ASK is not yet
+    # supported by QLever
+    return re.sub(
+        r"\bask\s+where\b",
+        "select * where",
+        sparql,
+        flags=re.IGNORECASE
+    )
+
+
 def query_qlever(
     sparql_query: str,
     kg: str = "wikidata"
 ) -> SPARQLResult:
+    sparql_query = _ask_to_select(sparql_query)
     response = requests.get(
         QLEVER_URLS[kg],
         params={"query": sparql_query}
