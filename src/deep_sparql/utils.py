@@ -445,7 +445,8 @@ class SPARQLResult:
 def _ask_to_select(sparql: str) -> str:
     # helper function that transforms a ASK WHERE query
     # to a SELECT * WHERE query because ASK is not yet
-    # supported by QLever
+    # supported by QLever, does not work in all cases
+    # because an ASK query might have 0 variables
     return re.sub(
         r"\bask\s+where\b",
         "select * where",
@@ -583,7 +584,7 @@ def special_token_or_token_ids(
     tok: tokenization.Tokenizer,
     tokenizer_type: str
 ) -> Tuple[str, List[int]]:
-    assert tokenizer_type in {"t5", "llama-2", "gpt2"}
+    assert tokenizer_type in {"t5", "llama-2", "gpt2", "mistral"}
     token_id = tok.special_token_to_id(s.strip())
     if token_id is not None:
         return s, [token_id]
