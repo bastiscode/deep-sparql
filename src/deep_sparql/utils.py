@@ -148,7 +148,14 @@ def clean_sparql(
     return re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
 
 
-def wikidata_prefixes() -> List[str]:
+def general_prefixes() -> list[str]:
+    return [
+        "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>",
+        "PREFIX wikibase: <http://wikiba.se/ontology#>",
+    ]
+
+
+def wikidata_prefixes() -> list[str]:
     return [
         "PREFIX wd: <http://www.wikidata.org/entity/>",
         "PREFIX wdt: <http://www.wikidata.org/prop/direct/>",
@@ -159,18 +166,16 @@ def wikidata_prefixes() -> List[str]:
         "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
         "PREFIX pqn: <http://www.wikidata.org/prop/qualifier/"
         "value-normalized/>",
-        "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>",
-        "PREFIX wikibase: <http://wikiba.se/ontology#>",
     ]
 
 
-def freebase_prefixes() -> List[str]:
+def freebase_prefixes() -> list[str]:
     return [
         "PREFIX fb: <http://rdf.freebase.com/ns/>",
     ]
 
 
-def dbpedia_prefixes() -> List[str]:
+def dbpedia_prefixes() -> list[str]:
     return [
         "PREFIX dbo: <http://dbpedia.org/ontology/>",
         "PREFIX dbp: <http://dbpedia.org/property/>",
@@ -179,14 +184,16 @@ def dbpedia_prefixes() -> List[str]:
 
 
 def get_prefixes(kg: str = "wikidata") -> list[str]:
+    prefixes = general_prefixes()
     if kg == "wikidata":
-        return wikidata_prefixes()
+        prefixes += wikidata_prefixes()
     elif kg == "freebase":
-        return freebase_prefixes()
+        prefixes += freebase_prefixes()
     elif kg == "dbpedia":
-        return dbpedia_prefixes()
+        prefixes += dbpedia_prefixes()
     else:
         raise RuntimeError(f"unknown knowledge graph {kg}")
+    return prefixes
 
 
 def _insert_newlines_after_brackets_and_triples(query: str) -> str:
@@ -348,15 +355,23 @@ def format_sparql(
     prefixes: list[str] | None = None,
     pretty: bool = False
 ) -> str:
+    # save existing prefixes for later
+    existing_prefixes = []
+
+    def _save_and_erase(m: re.Match) -> str:
+        existing_prefixes.append(m.group(0))
+        return ""
+    sparql = re.sub(PREFIX_REGEX, _save_and_erase, sparql)
+
     # filter only for used prefixes
-    parts = []
-    for pfx in prefixes or []:
+    parts = set()
+    for pfx in existing_prefixes + (prefixes or []):
         pfx_match = re.search(PREFIX_REGEX, pfx)
         assert pfx_match is not None
         pfx_short = pfx_match.group(2)
         if f"{pfx_short}:" not in sparql:
             continue
-        parts.append(pfx)
+        parts.add(pfx)
 
     # pretty format sparql with correct indentation after
     # brackets and other keywords
@@ -365,6 +380,7 @@ def format_sparql(
         sep = "\n"
         sparql = _pretty_format_sparql(sparql)
 
+    parts = list(sorted(parts))
     parts.append(sparql)
     return sep.join(parts)
 
