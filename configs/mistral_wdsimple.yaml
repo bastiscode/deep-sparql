@@ -52,9 +52,9 @@ train:
     batch_limit_type: batch_size
     pipeline:
       preprocessing: file(preprocessings/clean_and_normalize.yaml)
-      tokenizer: file(tokenizers/env(MISTRAL_TOKENIZER:llama)_train.yaml)
+      tokenizer: file(tokenizers/env(MISTRAL_TOKENIZER:mistral)_train.yaml)
       labeling:
-        tokenizer: file(tokenizers/env(MISTRAL_TOKENIZER:llama)_train.yaml)
+        tokenizer: file(tokenizers/env(MISTRAL_TOKENIZER:mistral)_train.yaml)
         type: generation
         generation:
           type: input_and_target
