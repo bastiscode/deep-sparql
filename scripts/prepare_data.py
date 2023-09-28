@@ -11,10 +11,11 @@ from datasets import load_dataset
 
 
 from deep_sparql.utils import (
+    get_prefixes,
     load_kg_index,
     load_inverse_index,
-    wikidata_prefixes,
     format_input,
+    format_sparql,
     uppercase_sparql_keywords
 )
 from deep_sparql.vector import Index, get_nearest_neighbors
@@ -381,11 +382,7 @@ def prepare(args: argparse.Namespace):
 
     os.makedirs(args.output, exist_ok=True)
 
-    if kg == "wikidata":
-        prefixes = wikidata_prefixes()
-    else:
-        raise RuntimeError("unknown knowledge graph")
-    prefix = " ".join(prefixes)
+    prefixes = get_prefixes(kg)
 
     for split, samples in data.items():
         examples = split_examples.get(split, [[]] * len(samples))
@@ -429,8 +426,7 @@ def prepare(args: argparse.Namespace):
                             " ",
                             sample.sparql,
                             flags=re.DOTALL
-                        ).strip(),
-                        with_new_line=False
+                        ).strip()
                     ) if has_sparql else None,
                     sample.result if not has_sparql else None
                 )
@@ -449,7 +445,7 @@ def prepare(args: argparse.Namespace):
                     ) + "\n")
                     if has_sparql:
                         # write sparql query
-                        tf.write(f"{prefix} {sample.sparql}\n")
+                        tf.write(f"{format_sparql(sample.sparql, prefixes)}\n")
                     else:
                         # write result set as space separated values
                         tf.write(

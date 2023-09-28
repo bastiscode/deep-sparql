@@ -308,21 +308,22 @@ SPARQL_NEWLINE = {
 }
 
 
-def _pretty_sparql_keyword(m: re.Match, with_new_line: bool = True) -> str:
-    keyword = m.group(0)
-    new_line = with_new_line and keyword in SPARQL_NEWLINE
-    return "\n" * new_line + keyword.upper()
-
-
-def uppercase_sparql_keywords(query: str, with_new_line: bool = True) -> str:
-    upc_fn = functools.partial(
-        _pretty_sparql_keyword,
-        with_new_line=with_new_line
-    )
+def _insert_newlines_before_keywords(query: str) -> str:
     for keyword in SPARQL_KEYWORDS:
         query = re.sub(
             rf"\b{keyword}\b",
-            upc_fn,
+            lambda m: "\n" + m.group(0),
+            query,
+            flags=re.IGNORECASE
+        )
+    return query
+
+
+def uppercase_sparql_keywords(query: str) -> str:
+    for keyword in SPARQL_KEYWORDS:
+        query = re.sub(
+            rf"\b{keyword}\b",
+            lambda m: m.group(0).upper(),
             query,
             flags=re.IGNORECASE
         )
@@ -331,7 +332,7 @@ def uppercase_sparql_keywords(query: str, with_new_line: bool = True) -> str:
 
 def _pretty_format_sparql(query: str) -> str:
     query = _insert_newlines_after_brackets_and_triples(query)
-    query = uppercase_sparql_keywords(query)
+    query = _insert_newlines_before_keywords(query)
 
     formatted_query = []
     indent_level = 0
@@ -355,6 +356,9 @@ def format_sparql(
     prefixes: list[str] | None = None,
     pretty: bool = False
 ) -> str:
+    # always upper case sparql keywords
+    sparql = uppercase_sparql_keywords(sparql)
+
     # save existing prefixes for later
     existing_prefixes = []
 
@@ -373,10 +377,10 @@ def format_sparql(
             continue
         parts.add(pfx)
 
-    # pretty format sparql with correct indentation after
-    # brackets and other keywords
     sep = " "
     if pretty:
+        # pretty format sparql with correct indentation after
+        # brackets and other keywords
         sep = "\n"
         sparql = _pretty_format_sparql(sparql)
 
