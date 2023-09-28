@@ -2,7 +2,6 @@ import copy
 import tempfile
 import functools
 from typing import Dict, Any, Optional, Tuple, List
-from text_correction_utils.api.utils import Device
 
 import torch
 from torch import nn
@@ -24,19 +23,19 @@ from transformers import (
     LlamaForCausalLM,
     BertModel,
     RobertaModel,
-    GPT2LMHeadModel
+    GPT2LMHeadModel,
+    MistralForCausalLM
 )
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
+    CausalLMOutputWithPast,
     Seq2SeqLMOutput,
 )
 from transformers.models.gpt2.modeling_gpt2 import GPT2Block
-from transformers.models.llama.modeling_llama import (
-    CausalLMOutputWithPast,
-    LlamaDecoderLayer
-)
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+from transformers.models.mistral.modeling_mistral import MistralDecoderLayer
 from transformers.models.mt5.modeling_mt5 import MT5Block
 from transformers.models.t5.modeling_t5 import T5Block
 
@@ -338,6 +337,7 @@ PRETRAINED_DECODERS = [
     "llama-2-7b",
     "llama-2-30b",
     "llama-2-70b",
+    "mistral-7b",
 ]
 
 
@@ -357,6 +357,11 @@ class PretrainedDecoder(Model):
                 self.model = LlamaForCausalLM.from_pretrained(
                     f"meta-llama/{name.capitalize()}-hf"
                 )  # type: ignore
+            elif name.startswith("mistral"):
+                name = name[:-1].capitalize() + name[-1].capitalize()
+                self.model = MistralForCausalLM.from_pretrained(
+                    f"mistralai/{name}-v0.1"
+                )  # type: ignore
             else:
                 self.model = GPT2LMHeadModel.from_pretrained(
                     name
@@ -364,6 +369,8 @@ class PretrainedDecoder(Model):
 
         if isinstance(self.model, LlamaForCausalLM):
             self.layer_cls = LlamaDecoderLayer
+        elif isinstance(self.model, MistralForCausalLM):
+            self.layer_cls = MistralDecoderLayer
         else:
             self.layer_cls = GPT2Block
 
