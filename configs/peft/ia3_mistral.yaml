@@ -1,0 +1,7 @@
+type: ia3
+target_modules: 
+  - self_attn.k_proj
+  - self_attn.v_proj
+  - mlp.down_proj
+feedforward_modules:
+  - mlp.down_proj
