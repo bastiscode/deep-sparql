@@ -183,7 +183,7 @@ def dbpedia_prefixes() -> list[str]:
     ]
 
 
-def get_prefixes(kg: str = "wikidata") -> list[str]:
+def get_prefixes(kg: str | None = None) -> list[str]:
     prefixes = general_prefixes()
     if kg == "wikidata":
         prefixes += wikidata_prefixes()
@@ -396,7 +396,7 @@ def prepare_sparql_query(
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
     entity_special_tokens: Tuple[str, str] = ("<boe>", "<eoe>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
-    kg: str = "wikidata",
+    kg: str | None = None,
     pretty: bool = False
 ) -> str:
     s, _ = replace_vars(s, *var_special_tokens)
@@ -589,11 +589,14 @@ def special_token_or_token_ids(
     if token_id is not None:
         return s, [token_id]
     num_pfx = tok.num_prefix_tokens()
+    num_sfx = tok.num_suffix_tokens()
+    token_ids = tok.tokenize(s).token_ids
     if tokenizer_type == "t5":
         # t5 tokenizer adds prefix space, which we ignore
         num_pfx += 1
-    num_sfx = tok.num_suffix_tokens()
-    token_ids = tok.tokenize(s).token_ids
+    elif tokenizer_type == "mistral":
+        while num_pfx < len(token_ids) and token_ids[num_pfx] == 28705:
+            num_pfx += 1
     token_ids = token_ids[num_pfx:len(token_ids)-num_sfx]
     return tok.de_tokenize(token_ids, False).strip(), token_ids
 

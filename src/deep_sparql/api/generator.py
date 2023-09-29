@@ -566,7 +566,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         batch_size = len(inputs["token_ids"])
         inference_kwargs = {}
         if self._is_encoder_decoder:
-            self.model: PretrainedEncoderDecoder
             enc = self.model.encode(**inputs)
             inference_kwargs["memory"] = enc
             inference_kwargs["memory_padding_mask"] = inputs["padding_mask"]
@@ -592,6 +591,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             **kwargs: Any
         ) -> Tuple[torch.Tensor, Dict[str, Any]]:
             if self._is_encoder_decoder:
+                assert isinstance(self.model, PretrainedEncoderDecoder)
                 dec, cache = self.model.decode(
                     token_ids,
                     kwargs["lengths"],
@@ -601,6 +601,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                     self._use_cache
                 )
             else:
+                assert isinstance(self.model, PretrainedDecoder)
                 dec, cache = self.model.decode(
                     token_ids,
                     kwargs["lengths"],
