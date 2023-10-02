@@ -1,5 +1,6 @@
 from io import TextIOWrapper
 import os
+import copy
 # import time
 import sys
 from typing import Any, Dict, List, Tuple, Optional, Union, Iterator, Callable
@@ -36,6 +37,7 @@ from deep_sparql.model import (
     model_from_config
 )
 from deep_sparql.utils import (
+    available_properties,
     format_input,
     clean_sparql,
     format_sparql,
@@ -58,6 +60,8 @@ class DecodingState:
         ent_stop_ids: List[int],
         prop_start_ids: List[int],
         prop_stop_ids: List[int],
+        entity_index: prefix.Vec,
+        property_index: prefix.Vec
     ):
         self._token_ids = initial_token_ids
         self._state: Optional[str] = None
@@ -68,6 +72,9 @@ class DecodingState:
         self._prop_stop = prop_stop_ids
         self._overlap_token_id: Optional[int] = None
         self._has_value = False
+        self._ent_index = entity_index
+        self._prop_index = property_index
+        self._sub_index: prefix.Vec | None = None
 
     def is_ent_start(self) -> bool:
         return (
@@ -77,8 +84,8 @@ class DecodingState:
 
     def is_ent_stop(self) -> bool:
         return (
-            self._token_ids[-len(self._ent_stop)] == self._ent_stop
-            and self.is_ent()
+            self.is_ent() and
+            self._token_ids[-len(self._ent_stop):] == self._ent_stop
         )
 
     def is_prop_start(self) -> bool:
@@ -89,8 +96,8 @@ class DecodingState:
 
     def is_prop_stop(self) -> bool:
         return (
-            self._token_ids[-len(self._prop_stop)] == self._prop_stop
-            and self.is_prop()
+            self.is_prop() and
+            self._token_ids[-len(self._prop_stop):] == self._prop_stop
         )
 
     def is_ent(self) -> bool:
@@ -111,34 +118,70 @@ class DecodingState:
     def get_obj_token_ids(self) -> List[int]:
         return self._token_ids[self._start_idx:]
 
+    def get_index(self) -> prefix.Vec | None:
+        if self.is_ent():
+            return self._sub_index or self._ent_index
+        elif self.is_prop():
+            return self._sub_index or self._prop_index
+        else:
+            return None
+
+    def calc_overlap(self) -> tuple[int, int]:
+        if self.is_ent():
+            overlap = len(longest_overlap(self._token_ids, self._ent_stop))
+            self._overlap_token_id = self._ent_stop[overlap]
+            return overlap, self._overlap_token_id
+        elif self.is_prop():
+            overlap = len(longest_overlap(self._token_ids, self._prop_stop))
+            self._overlap_token_id = self._prop_stop[overlap]
+            return overlap, self._overlap_token_id
+        else:
+            raise RuntimeError(
+                "calc overlap should only be called when "
+                "decoding an entity or property"
+            )
+
     def add(
         self,
         token_id: int,
+        kg: str = "wikidata",
+        lang: str = "en"
     ):
         self._token_ids.append(token_id)
         self._has_value = self._overlap_token_id == token_id
         self._overlap_token_id = None
-        if ((
-                self.is_ent()
-                and self._token_ids[-len(self._ent_stop):] == self._ent_stop
-            ) or (
-                self.is_prop()
-                and self._token_ids[-len(self._prop_stop):] == self._prop_stop
-        )):
+        if self.is_ent_stop() or self.is_prop_stop():
             self._state = None
             self._has_value = False
-        elif (
-            self._state is None
-            and self._token_ids[-len(self._ent_start):] == self._ent_start
-        ):
+            self._sub_index = None
+        elif self.is_ent_start():
             self._state = "ent"
             self._start_idx = len(self._token_ids)
-        elif (
-            self._state is None
-            and self._token_ids[-len(self._prop_start):] == self._prop_start
-        ):
+        elif self.is_prop_start():
             self._state = "prop"
             self._start_idx = len(self._token_ids)
+            # values = available_properties()
+            # if values is not None:
+            #     self._sub_index = self._ent_index.get_sub_index_by_values(
+            #         values
+            #     )
+
+    def __deepcopy__(self, memo) -> "DecodingState":
+        state = {
+            name: copy.deepcopy(val, memo)
+            for name, val in self.__dict__.items()
+            if name not in {"_ent_index", "_prop_index", "_sub_index"}
+        }
+        copied = DecodingState(
+            [], [], [], [], [], None, None
+        )
+        copied.__dict__ = {
+            **state,
+            "_ent_index": self._ent_index,
+            "_prop_index": self._prop_index,
+            "_sub_index": self._sub_index
+        }
+        return copied
 
 
 class SPARQLGenerator(corrector.TextCorrector):
@@ -297,8 +340,6 @@ class SPARQLGenerator(corrector.TextCorrector):
             )[len(eos_token):-len(eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
-        self._initial_ent_mask = [True] * self.output_tokenizer.vocab_size()
-        self._initial_prop_mask = [True] * self.output_tokenizer.vocab_size()
 
     def to(self, device: Device) -> "SPARQLGenerator":
         self.devices = get_devices(device)
@@ -338,67 +379,59 @@ class SPARQLGenerator(corrector.TextCorrector):
         # None --> nothing
         # (ent, idx) --> entity starting at idx
         # (prop, idx) --> property starting at idx
+        assert self.has_kg_indices
         return DecodingState(
             initial_token_ids,
             self._boe_ids,
             self._eoe_ids,
             self._bop_ids,
-            self._eop_ids
+            self._eop_ids,
+            self._entity_index,
+            self._property_index
         )
 
-    def _get_indices_and_conts(
+    def _update_cont_mask(
         self,
-        index: prefix.Vec,
+        cont_mask: torch.Tensor,
         decoding_states: List[DecodingState],
-        state_indices: List[int],
-        filter_fn: Callable[[DecodingState], bool],
-        initial_cont_mask: List[bool],
-        end_token_ids: List[int]
-    ) -> Tuple[List[int], List[List[bool]]]:
-        # helper fn to get valid continuations
-        # from a prefix index
+    ) -> torch.Tensor:
+        assert cont_mask.shape[0] == len(decoding_states)
         indices = []
         masks = []
-        prefix_indices = []
-        prefixes = []
-        for i, idx in enumerate(state_indices):
-            if not filter_fn(decoding_states[idx]):
+        for i, state in enumerate(decoding_states):
+            index = state.get_index()
+            if index is None:
                 continue
-            token_ids = decoding_states[idx].get_obj_token_ids()
-            if len(token_ids) == 0:
-                masks.append(initial_cont_mask)
-                indices.append(i)
-                continue
-            decoded = self.output_tokenizer.de_tokenize(
+            indices.append(i)
+            token_ids = state.get_obj_token_ids()
+            prefix = self.output_tokenizer.de_tokenize(
                 token_ids,
                 False
             ).lstrip().encode("utf8")
-            prefixes.append(decoded)
-            prefix_indices.append(i)
-
-        cont_masks, values = index.batch_continuation_mask(prefixes)
-
-        for cont_mask, has_value, idx in zip(
-            cont_masks,
-            values,
-            prefix_indices
-        ):
-            state: DecodingState = decoding_states[state_indices[idx]]
-            token_ids = state.get_obj_token_ids()
-            overlap = len(longest_overlap(token_ids, end_token_ids))
-            overlap_token_id = end_token_ids[overlap]
-            assert overlap < len(end_token_ids)
+            mask, value = index.continuation_mask(prefix)
+            overlap, overlap_token_id = state.calc_overlap()
             valid_cont = (
-                (overlap == 0 and has_value)
+                (overlap == 0 and value)
                 or
                 (overlap > 0 and state.has_value())
             )
-            cont_mask[overlap_token_id] = valid_cont
-            state.set_overlap(overlap_token_id if valid_cont else None)
+            mask[overlap_token_id] = valid_cont
+            masks.append(mask)
 
-        indices.extend(prefix_indices)
-        masks.extend(cont_masks)
-        return indices, masks
+        if len(indices) > 0:
+            indices = torch.tensor(
+                indices,
+                dtype=torch.long,
+                device=cont_mask.device
+            )
+            mask = torch.tensor(
+                masks,
+                dtype=torch.bool,
+                device=cont_mask.device
+            )
+            cont_mask[indices, :mask.shape[-1]] = mask
+
+        return cont_mask
 
     def _index_select_fn(
         self,
@@ -410,43 +443,15 @@ class SPARQLGenerator(corrector.TextCorrector):
         ) -> Tuple[torch.Tensor, torch.Tensor]:
             conts = torch.ones(
                 *scores.shape,
+                device=scores.device,
                 dtype=torch.bool
             )
             conts[..., self.output_tokenizer.vocab_size():] = False
 
-            # first entities
-            (
-                ent_indices,
-                ent_conts
-            ) = self._get_indices_and_conts(
-                self._entity_index,
-                decoding_states,
-                indices,
-                lambda state: state.is_ent(),
-                self._initial_ent_mask,
-                self._eoe_ids
+            conts = self._update_cont_mask(
+                conts,
+                decoding_states
             )
-            if len(ent_indices) > 0:
-                ent_indices = torch.tensor(ent_indices, dtype=torch.long)
-                ent_conts = torch.tensor(ent_conts, dtype=torch.bool)
-                conts[ent_indices, :ent_conts.shape[-1]] = ent_conts
-
-            # then properties
-            (
-                prop_indices,
-                prop_conts
-            ) = self._get_indices_and_conts(
-                self._property_index,
-                decoding_states,
-                indices,
-                lambda state: state.is_prop(),
-                self._initial_prop_mask,
-                self._eop_ids
-            )
-            if len(prop_indices) > 0:
-                prop_indices = torch.tensor(prop_indices, dtype=torch.long)
-                prop_conts = torch.tensor(prop_conts, dtype=torch.bool)
-                conts[prop_indices, :prop_conts.shape[-1]] = prop_conts
 
             scores[torch.logical_not(conts)] = float("-inf")
             token_ids = torch.argmax(scores, -1)
@@ -471,6 +476,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         ) -> List[List[Beam]]:
             conts = torch.ones(
                 *scores.shape,
+                device=scores.device,
                 dtype=torch.bool
             )
             conts[..., self.output_tokenizer.vocab_size():] = False
@@ -484,38 +490,16 @@ class SPARQLGenerator(corrector.TextCorrector):
                             self._boe_ids,
                             self._eoe_ids,
                             self._bop_ids,
-                            self._eop_ids
+                            self._eop_ids,
+                            self._entity_index,
+                            self._property_index
                         )
                     decoding_states.append(beam.info["state"])
-            indices = list(range(len(decoding_states)))
 
-            # first entities
-            ent_indices, ent_conts = self._get_indices_and_conts(
-                self._entity_index,
-                decoding_states,
-                indices,
-                lambda state: state.is_ent(),
-                self._initial_ent_mask,
-                self._eoe_ids
+            conts = self._update_cont_mask(
+                conts,
+                decoding_states
             )
-            if len(ent_indices) > 0:
-                ent_indices = torch.tensor(ent_indices, dtype=torch.long)
-                ent_conts = torch.tensor(ent_conts, dtype=torch.bool)
-                conts[ent_indices, :ent_conts.shape[-1]] = ent_conts
-
-            # then properties
-            prop_indices, prop_conts = self._get_indices_and_conts(
-                self._property_index,
-                decoding_states,
-                indices,
-                lambda state: state.is_prop(),
-                self._initial_prop_mask,
-                self._eop_ids
-            )
-            if len(prop_indices) > 0:
-                prop_indices = torch.tensor(prop_indices, dtype=torch.long)
-                prop_conts = torch.tensor(prop_conts, dtype=torch.bool)
-                conts[prop_indices, :prop_conts.shape[-1]] = prop_conts
 
             scores[torch.logical_not(conts)] = float("-inf")
 
@@ -712,6 +696,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 self._prop_special_tokens
             )
         )
+        print(f"raw: {processed}")
         return data.InferenceData(processed, language=items[0].data.language)
 
     def set_inference_options(
@@ -733,33 +718,11 @@ class SPARQLGenerator(corrector.TextCorrector):
         property_index: Optional[Union[str, prefix.Vec]] = None,
         example_index: Optional[Union[str, vector.Index]] = None,
     ) -> None:
-        def _initial_mask(
-            index: prefix.Vec,
-            continuations: List[bytes]
-        ) -> List[bool]:
-            index.set_continuations(continuations, max_depth=0)
-            cont_mask, _ = index.continuation_mask(b"")
-            stripped_continuations = [c.lstrip() for c in continuations]
-            index.set_continuations(stripped_continuations, max_depth=0)
-            stripped_cont_mask, _ = index.continuation_mask(b"")
-            return [
-                len(cont) > 0 and (a or b)
-                for cont, a, b, in zip(
-                    stripped_continuations,
-                    cont_mask,
-                    stripped_cont_mask
-                )
-            ]
-
         if entity_index is not None:
             if isinstance(entity_index, str):
                 entity_index = prefix.Vec.load(entity_index)
             self._entity_index = entity_index
             self._entity_index.compute_memo(max_depth=3)  # type: ignore
-            self._initial_ent_mask = _initial_mask(
-                self._entity_index,
-                self._continuations
-            )
             self._entity_index.set_continuations(
                 self._continuations,
                 max_depth=1
@@ -770,10 +733,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 property_index = prefix.Vec.load(property_index)
             self._property_index = property_index
             self._property_index.compute_memo(max_depth=3)  # type: ignore
-            self._initial_prop_mask = _initial_mask(
-                self._property_index,
-                self._continuations
-            )
             self._property_index.set_continuations(
                 self._continuations,
                 max_depth=1
