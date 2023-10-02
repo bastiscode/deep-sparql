@@ -696,7 +696,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 self._prop_special_tokens
             )
         )
-        print(f"raw: {processed}")
         return data.InferenceData(processed, language=items[0].data.language)
 
     def set_inference_options(
