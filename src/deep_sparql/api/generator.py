@@ -37,7 +37,6 @@ from deep_sparql.model import (
     model_from_config
 )
 from deep_sparql.utils import (
-    available_properties,
     format_input,
     clean_sparql,
     format_sparql,

@@ -1,5 +1,5 @@
-import functools
 import re
+import uuid
 import requests
 from typing import Dict, List, Callable, Tuple, Optional, Set
 
@@ -214,6 +214,25 @@ def _insert_newlines_after_brackets_and_triples(query: str) -> str:
             c = "\n" + c + "\n"
         formatted.append(c)
     return "".join(formatted)
+
+
+def _count_open_and_closing_brackets(query: str) -> tuple[int, int]:
+    current_quote = None
+    in_literal = False
+    open = close = 0
+    for c in query:
+        if c in ["'", '"'] and (current_quote is None or current_quote == c):
+            if in_literal:
+                in_literal = False
+                current_quote = None
+            else:
+                in_literal = True
+                current_quote = c
+        elif c == "{" and not in_literal:
+            open += 1
+        elif c == "}" and not in_literal:
+            close += 1
+    return open, close
 
 
 SPARQL_KEYWORDS = [
@@ -448,10 +467,11 @@ def _ask_to_select(sparql: str) -> str:
     # supported by QLever, does not work in all cases
     # because an ASK query might have 0 variables
     return re.sub(
-        r"\bask\s+where\b",
-        "select * where",
+        r"\bask\b\s+\bwhere\b",
+        "SELECT * WHERE",
         sparql,
-        flags=re.IGNORECASE
+        flags=re.IGNORECASE,
+        count=1
     )
 
 
@@ -695,27 +715,81 @@ def calc_f1(
     return f1, False, False
 
 
-def available_properties(
-    entity: str,
+def _get_unique_var_name() -> str:
+    return str(uuid.uuid4()).replace("-", "_")
+
+
+def _autocomplete_sparql(
+    sparql: str,
+    current_state: str,
+    additional_constraints: Callable[[str], str] | None = None
+) -> tuple[str, str] | None:
+    open, close = _count_open_and_closing_brackets(sparql)
+    if close >= open:
+        return None
+    # generate unique variable name
+    var = _get_unique_var_name()
+    sparql += f" ?{var}"
+    if current_state == "subject":
+        pred_var = _get_unique_var_name()
+        obj_var = _get_unique_var_name()
+        sparql += f" ?{pred_var} ?{obj_var} ."
+    elif current_state == "predicate":
+        obj_var = _get_unique_var_name()
+        sparql += f" ?{obj_var} ."
+    else:
+        sparql += " ."
+    if additional_constraints is not None:
+        sparql += additional_constraints(var)
+    sparql += "".join(" }" * (open - close))
+    return sparql, var
+
+
+def get_completions(
+    sparql: str,
+    current_state: str,
     kg: str = "wikidata",
     lang: str = "en",
 ) -> list[str] | None:
-    prefix = "\n".join(get_prefixes(kg))
-    if kg == "wikidata":
-        sparql = f"{prefix} SELECT DISTINCT ?prop WHERE {{" \
-            f"{entity} ?p ?statement . ?prop wikibase:directClaim ?p . "\
-            f"?prop rdfs:label ?label . FILTER(LANG(?label) = '{lang}') }}"
-    else:
-        raise NotImplementedError
+    assert current_state in {"subject", "predicate", "object"}
+    additional_constraints = None
+    if kg == "wikidata" and current_state == "predicate":
+        def _wikidata_predicate_constraints(var: str) -> str:
+            prop_var = _get_unique_var_name()
+            return f"?{prop_var} wikibase:directClaim ?{var} . " \
+                f"?{prop_var} rdfs:label ?{prop_var}_label . "\
+                f"FILTER(LANG(?{prop_var}_label) = '{lang}')"
+        additional_constraints = _wikidata_predicate_constraints
+
+    completion = _autocomplete_sparql(
+        sparql,
+        current_state,
+        additional_constraints
+    )
+    if completion is None:
+        return None
+    sparql, var = completion
+
+    prefix = " ".join(get_prefixes(kg))
+    sparql = _ask_to_select(sparql)
+    # replace SELECT ... WHERE with SELECT DISTINCT ?var WHERE
+    sparql = re.sub(
+        r"\bselect\b\s+.*?\s+\bwhere\b",
+        f"SELECT DISTINCT ?{var} WHERE",
+        sparql,
+        flags=re.IGNORECASE,
+        count=1
+    )
+    print(f"sparql: {sparql}")
+    sparql = prefix + sparql
     try:
         result = query_qlever(sparql, kg)
     except Exception:
         return None
     if kg == "wikidata":
-        properties = []
+        results = []
         for res in result.results:
-            for pfx in ["wdt", "p", "ps", "psn", "pq", "pqn"]:
-                properties.append(pfx + ":" + res["prop"].value.split("/")[-1])
+            results.append(res[var].value)
     else:
         raise NotImplementedError
-    return properties
+    return results
