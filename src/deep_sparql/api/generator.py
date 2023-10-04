@@ -168,7 +168,6 @@ class DecodingState:
         sparql = sparql_fn(
             self._token_ids[self._initial_length:-num_start_ids]
         )
-        print(f"got sparql: {sparql}")
         # get valid completions for this partial sparql query
         values = get_completions(
             sparql,
@@ -180,7 +179,6 @@ class DecodingState:
         )
         if values is None:
             return
-        print(f"got sub index for sparql: {sparql} with {len(values)} values")
         self._sub_index = index.get_sub_index_by_values(values)
         self._sub_index.compute_memo(max_depth=3)
 
@@ -612,9 +610,8 @@ class SPARQLGenerator(corrector.TextCorrector):
     def _inference(
         self,
         inputs: Dict[str, Any],
-        items: list[data.InferenceItem]
     ) -> list[Any]:
-        batch_size = len(items)
+        batch_size = len(inputs["token_ids"])
         inference_kwargs = {}
         if self._is_encoder_decoder:
             enc = self.model.encode(**inputs)
