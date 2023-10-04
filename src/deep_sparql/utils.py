@@ -780,7 +780,6 @@ def get_completions(
         flags=re.IGNORECASE,
         count=1
     )
-    print(f"sparql: {sparql}")
     sparql = prefix + sparql
     try:
         result = query_qlever(sparql, kg)
