@@ -30,7 +30,6 @@ class SPARQLCli(TextCorrectionCli):
         execute = execute and self.cor.has_kg_indices
         query = self.cor.prepare_sparql_query(
             item.text,
-            self.args.kg,
             execute or self.args.correct is not None
         )
         if not execute:
@@ -62,6 +61,8 @@ class SPARQLCli(TextCorrectionCli):
             strategy=self.args.search_strategy,
             beam_width=self.args.beam_width,
             sample_top_k=self.args.sample_top_k,
+            kg=self.args.kg,
+            lang=self.args.lang or "en",
             use_cache=not self.args.no_kv_cache
         )
 
@@ -124,7 +125,6 @@ class SPARQLCli(TextCorrectionCli):
                     corrector.prepare_questions(
                         [data.text],
                         self.args.n_examples,
-                        kg=self.args.kg
                     )[0],
                     data.language
                 )
@@ -210,7 +210,7 @@ def main():
         help="Path to property index file"
     )
     parser.add_argument(
-        "--example-index",
+        "-X", "--example-index",
         type=str,
         default=None,
         help="Path to example index directory"

@@ -37,9 +37,11 @@ from deep_sparql.model import (
     model_from_config
 )
 from deep_sparql.utils import (
+    KNOWLEDGE_GRAPHS,
     format_input,
     clean_sparql,
     format_sparql,
+    get_completions,
     prepare_sparql_query,
     special_token_or_token_ids,
     longest_overlap
@@ -63,13 +65,14 @@ class DecodingState:
         property_index: prefix.Vec
     ):
         self._token_ids = initial_token_ids
-        self._state: Optional[str] = None
+        self._initial_length = len(self._token_ids)
+        self._state: str | None = None
         self._start_idx = 0
         self._ent_start = ent_start_ids
         self._ent_stop = ent_stop_ids
         self._prop_start = prop_start_ids
         self._prop_stop = prop_stop_ids
-        self._overlap_token_id: Optional[int] = None
+        self._overlap_token_id: int | None = None
         self._has_value = False
         self._ent_index = entity_index
         self._prop_index = property_index
@@ -108,13 +111,13 @@ class DecodingState:
     def has_value(self) -> bool:
         return self._has_value
 
-    def set_overlap(self, token_id: Optional[int]):
+    def set_overlap(self, token_id: int | None):
         self._overlap_token_id = token_id
 
     def is_obj(self) -> bool:
         return self._state is not None
 
-    def get_obj_token_ids(self) -> List[int]:
+    def get_obj_token_ids(self) -> list[int]:
         return self._token_ids[self._start_idx:]
 
     def get_index(self) -> prefix.Vec | None:
@@ -140,11 +143,50 @@ class DecodingState:
                 "decoding an entity or property"
             )
 
+    def calc_sub_index(
+        self,
+        sparql_fn: Callable[[list[int]], str],
+        kg: str = "wikidata",
+        lang: str = "en"
+    ):
+        if self._sub_index is not None:
+            return
+
+        at_start = len(self._token_ids) == self._start_idx
+        if self._state == "ent" and at_start:
+            index = self._ent_index
+            num_start_ids = len(self._ent_start)
+            current_state = "subject"
+        elif self._state == "prop" and at_start:
+            index = self._prop_index
+            num_start_ids = len(self._prop_start)
+            current_state = "predicate"
+        else:
+            return
+
+        # get sparql up to current entity / property
+        sparql = sparql_fn(
+            self._token_ids[self._initial_length:-num_start_ids]
+        )
+        print(f"got sparql: {sparql}")
+        # get valid completions for this partial sparql query
+        values = get_completions(
+            sparql,
+            current_state,
+            self._ent_index,
+            self._prop_index,
+            kg,
+            lang
+        )
+        if values is None:
+            return
+        print(f"got sub index for sparql: {sparql} with {len(values)} values")
+        self._sub_index = index.get_sub_index_by_values(values)
+        self._sub_index.compute_memo(max_depth=3)
+
     def add(
         self,
         token_id: int,
-        kg: str = "wikidata",
-        lang: str = "en"
     ):
         self._token_ids.append(token_id)
         self._has_value = self._overlap_token_id == token_id
@@ -159,11 +201,6 @@ class DecodingState:
         elif self.is_prop_start():
             self._state = "prop"
             self._start_idx = len(self._token_ids)
-            # values = available_properties()
-            # if values is not None:
-            #     self._sub_index = self._ent_index.get_sub_index_by_values(
-            #         values
-            #     )
 
     def __deepcopy__(self, memo) -> "DecodingState":
         state = {
@@ -326,6 +363,8 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._beam_width = 5
         self._sample_top_k = 5
         self._use_cache = True
+        self._kg = "wikidata"
+        self._lang = "en"
         assert self._eos_token_id is not None
 
         self._entity_index = None
@@ -339,6 +378,21 @@ class SPARQLGenerator(corrector.TextCorrector):
             )[len(eos_token):-len(eos_token)].encode("utf8")
             for i in range(self.output_tokenizer.vocab_size())
         ]
+
+        def _sparql_from_token_ids(
+            token_ids: list[int]
+        ) -> str:
+            raw = self.output_tokenizer.de_tokenize(token_ids, False)
+            return clean_sparql(
+                raw,
+                self._bracket_special_tokens,
+                (
+                    self._var_special_tokens,
+                    self._ent_special_tokens,
+                    self._prop_special_tokens
+                )
+            )
+        self._sparql_from_token_ids = _sparql_from_token_ids
 
     def to(self, device: Device) -> "SPARQLGenerator":
         self.devices = get_devices(device)
@@ -434,7 +488,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def _index_select_fn(
         self,
-        decoding_states: List[DecodingState]
+        decoding_states: List[DecodingState],
     ) -> IdxSelectFn:
         def _fn(
             scores: torch.Tensor,
@@ -462,6 +516,11 @@ class SPARQLGenerator(corrector.TextCorrector):
                 token_ids.tolist()
             ):
                 decoding_states[idx].add(token_id)
+                decoding_states[idx].calc_sub_index(
+                    self._sparql_from_token_ids,
+                    self._kg,
+                    self._lang
+                )
 
             return token_ids, scores
 
@@ -538,6 +597,11 @@ class SPARQLGenerator(corrector.TextCorrector):
                     beam = Beam.from_beam(beams[idx], log_p, token_id)
                     state: DecodingState = beam.info["state"]
                     state.add(token_id)
+                    state.calc_sub_index(
+                        self._sparql_from_token_ids,
+                        self._kg,
+                        self._lang
+                    )
                     candidate_beams.append(beam)
                 batch_candidates.append(candidate_beams)
 
@@ -545,8 +609,12 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         return _fn
 
-    def _inference(self, inputs: Dict[str, Any]) -> Any:
-        batch_size = len(inputs["token_ids"])
+    def _inference(
+        self,
+        inputs: Dict[str, Any],
+        items: list[data.InferenceItem]
+    ) -> list[Any]:
+        batch_size = len(items)
         inference_kwargs = {}
         if self._is_encoder_decoder:
             enc = self.model.encode(**inputs)
@@ -679,35 +747,28 @@ class SPARQLGenerator(corrector.TextCorrector):
         items: List[data.InferenceItem],
         outputs: List[Any],
     ) -> data.InferenceData:
-        merged = "".join(
-            self.output_tokenizer.de_tokenize(
-                output[:-1],
-                False
-            )
-            for output in outputs
+        assert len(outputs) == 1
+        return data.InferenceData(
+            self._sparql_from_token_ids(outputs[0][:-1]),
+            language=items[0].data.language
         )
-        processed = clean_sparql(
-            merged,
-            self._bracket_special_tokens,
-            (
-                self._var_special_tokens,
-                self._ent_special_tokens,
-                self._prop_special_tokens
-            )
-        )
-        return data.InferenceData(processed, language=items[0].data.language)
 
     def set_inference_options(
         self,
         strategy: str = "greedy",
         beam_width: int = 5,
         sample_top_k: int = 5,
-        use_cache: bool = True
+        kg: str = "wikidata",
+        lang: str = "en",
+        use_cache: bool = True,
     ) -> None:
         assert strategy in ["greedy", "beam", "sample"]
         self._strategy = strategy
         self._beam_width = beam_width
         self._sample_top_k = sample_top_k
+        assert kg in KNOWLEDGE_GRAPHS
+        self._kg = kg
+        self._lang = lang
         self._use_cache = use_cache
 
     def set_indices(
@@ -762,7 +823,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         raw: bool = False,
         show_progress: bool = False,
         n_examples: int = 3,
-        kg: Optional[str] = None
     ) -> Union[str, List[str]]:
         input_is_string = isinstance(inputs, str)
         assert (
@@ -796,7 +856,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             (
                 data.InferenceData(
                     s if raw else
-                    self.prepare_questions([s], n_examples, kg=kg)[0],
+                    self.prepare_questions([s], n_examples)[0],
                     language=l
                 )
                 for s, l in zip(inputs, langs)
@@ -831,18 +891,17 @@ class SPARQLGenerator(corrector.TextCorrector):
 
         if input_is_string:
             output = next(iter(outputs)).text
-            return output if raw else self.prepare_sparql_query(output, kg)
+            return output if raw else self.prepare_sparql_query(output)
         else:
             return [
                 output.text if raw
-                else self.prepare_sparql_query(output.text, kg)
+                else self.prepare_sparql_query(output.text)
                 for output in outputs
             ]
 
     def prepare_sparql_query(
         self,
         output: str,
-        kg: Optional[str] = None,
         pretty: bool = False
     ) -> str:
         if not self.has_kg_indices:
@@ -851,7 +910,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             output,
             self._entity_index,
             self._property_index,
-            kg=kg,
+            kg=self._kg,
             pretty=pretty
         )
 
@@ -860,7 +919,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         questions: List[str],
         n_examples: int = 3,
         batch_size: int = 16,
-        kg: Optional[str] = None
     ) -> List[str]:
         if self._example_index is not None and n_examples > 0:
             examples = vector.get_nearest_neighbors(
@@ -876,7 +934,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             format_input(
                 q,
                 [ex_str for ex_str, _ in ex],
-                kg,
+                self._kg,
             ) + ":" * (not self._is_encoder_decoder)
             for q, ex in zip(questions, examples)
         ]
@@ -891,13 +949,12 @@ class SPARQLGenerator(corrector.TextCorrector):
         raw: bool = False,
         show_progress: bool = False,
         n_examples: int = 3,
-        kg: Optional[str] = None
     ) -> Union[Iterator[str], Iterator[data.InferenceData]]:
         loader = self._get_loader(
             (
                 data.InferenceData(
                     s if raw else
-                    self.prepare_questions([s], n_examples, kg=kg)[0],
+                    self.prepare_questions([s], n_examples)[0],
                     language=l
                 )
                 for s, l in iter
@@ -933,7 +990,7 @@ class SPARQLGenerator(corrector.TextCorrector):
             yield from output
         else:
             yield from (
-                self.prepare_sparql_query(data.text, kg)
+                self.prepare_sparql_query(data.text)
                 for data in output
             )
 
@@ -950,7 +1007,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         num_threads: Optional[int] = None,
         raw: bool = False,
         show_progress: bool = False,
-        kg: Optional[str] = None
     ) -> Optional[Iterator[str]]:
         assert input_file_format in self.supported_input_formats(), \
             f"unsupported input file format {input_file_format}, \
@@ -1002,7 +1058,6 @@ class SPARQLGenerator(corrector.TextCorrector):
                 if not raw:
                     output.text = self.prepare_sparql_query(
                         output.text,
-                        kg
                     )
                 output_file.write(f"{output.to_str(output_file_format)}\n")
 
@@ -1012,6 +1067,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         else:
             return (
                 output.text if raw else
-                self.prepare_sparql_query(output.text, kg)
+                self.prepare_sparql_query(output.text)
                 for output in outputs
             )

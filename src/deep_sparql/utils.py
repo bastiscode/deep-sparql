@@ -748,6 +748,8 @@ def _autocomplete_sparql(
 def get_completions(
     sparql: str,
     current_state: str,
+    entity_index: prefix.Vec,
+    property_index: prefix.Vec,
     kg: str = "wikidata",
     lang: str = "en",
 ) -> list[str] | None:
@@ -770,9 +772,17 @@ def get_completions(
         return None
     sparql, var = completion
 
-    prefix = " ".join(get_prefixes(kg))
+    # replace entities and properties and format sparql
+    sparql = prepare_sparql_query(
+        sparql,
+        entity_index,
+        property_index,
+        kg=kg
+    )
+    # replace outermost ASK WHERE with SELECT * WHERE
     sparql = _ask_to_select(sparql)
     # replace SELECT ... WHERE with SELECT DISTINCT ?var WHERE
+    # in outermost SELECT
     sparql = re.sub(
         r"\bselect\b\s+.*?\s+\bwhere\b",
         f"SELECT DISTINCT ?{var} WHERE",
@@ -780,15 +790,27 @@ def get_completions(
         flags=re.IGNORECASE,
         count=1
     )
-    sparql = prefix + sparql
     try:
         result = query_qlever(sparql, kg)
     except Exception:
         return None
+
     if kg == "wikidata":
         results = []
+        if current_state == "predicate":
+            pattern = r"^http://www.wikidata.org/prop/direct/(P\d+)$"
+            prefix = "wdt:"
+        else:
+            pattern = r"^http://www.wikidata.org/entity/(Q\d+)$"
+            prefix = "wd:"
+
+        pattern = re.compile(pattern)
+
         for res in result.results:
-            results.append(res[var].value)
+            value = next(pattern.finditer(res[var].value), None)
+            if value is None:
+                continue
+            results.append(prefix + value.group(1))
     else:
         raise NotImplementedError
     return results
