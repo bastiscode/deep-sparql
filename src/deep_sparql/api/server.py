@@ -17,6 +17,8 @@ class SPARQLServer(TextCorrectionServer):
     def __init__(self, config: Dict[str, Any]):
         assert "feedback_file" in config, "missing feedback_file in config"
         super().__init__(config)
+        self.use_cache = self.config.get("kv_cache", True)
+        self.batch_size = self.config.get("batch_size", 1)
         feedback_dir = os.path.dirname(config["feedback_file"])
         if feedback_dir:
             os.makedirs(feedback_dir, exist_ok=True)
@@ -75,8 +77,11 @@ class SPARQLServer(TextCorrectionServer):
 
             search_strategy = json.get("search_strategy", "greedy")
             beam_width = json.get("beam_width", 5)
+            sample_top_k = json.get("sample_top_k", 5)
+            subgraph_constraining = json.get("subgraph_constraining", False)
             n_examples = json.get("num_examples", 3)
             kg = json.get("kg", "wikidata")
+            lang = json.get("lang", "en")
 
             try:
                 with self.text_corrector(json["model"]) as cor:
@@ -84,15 +89,19 @@ class SPARQLServer(TextCorrectionServer):
                         return abort(cor.to_response())
                     assert isinstance(cor, SPARQLGenerator)
                     cor.set_inference_options(
-                        search_strategy,
-                        beam_width,
-                        use_cache=self.config.get("kv_cache", True)
+                        strategy=search_strategy,
+                        beam_width=beam_width,
+                        sample_top_k=sample_top_k,
+                        subgraph_constraining=subgraph_constraining,
+                        kg=kg,
+                        lang=lang,
+                        use_cache=self.use_cache
                     )
                     start = time.perf_counter()
                     questions = cor.prepare_questions(
                         [q.strip() for q in json["questions"]],
                         n_examples,
-                        kg=kg
+                        self.batch_size
                     )
                     iter = ProgressIterator(
                         ((q, None) for q in questions),
@@ -102,6 +111,7 @@ class SPARQLServer(TextCorrectionServer):
                     sparql = []
                     for item in cor.generate_iter(
                         iter,
+                        batch_size=self.batch_size,
                         raw=True
                     ):
                         generated.append(format_sparql(item.text, pretty=True))
@@ -109,7 +119,6 @@ class SPARQLServer(TextCorrectionServer):
                             continue
                         query = cor.prepare_sparql_query(
                             item.text,
-                            kg=kg,
                             pretty=True
                         )
                         sparql.append(query)
