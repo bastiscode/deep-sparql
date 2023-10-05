@@ -61,6 +61,7 @@ class SPARQLCli(TextCorrectionCli):
             strategy=self.args.search_strategy,
             beam_width=self.args.beam_width,
             sample_top_k=self.args.sample_top_k,
+            subgraph_constraining=self.args.subgraph_constraining,
             kg=self.args.kg,
             lang=self.args.lang or "en",
             use_cache=not self.args.no_kv_cache
@@ -190,6 +191,12 @@ def main():
         "--no-kv-cache",
         action="store_true",
         help="Whether to use key and value caches during decoding"
+    )
+    parser.add_argument(
+        "--subgraph-constraining",
+        action="store_true",
+        help="Whether to constrain entities and properties to already decoded "
+        "subgraph, only works with entity and property indices"
     )
     parser.add_argument(
         "--kg",

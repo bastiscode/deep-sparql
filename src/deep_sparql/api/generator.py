@@ -383,6 +383,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._beam_width = 5
         self._sample_top_k = 5
         self._use_cache = True
+        self._subgraph_constraining = False
         self._kg = "wikidata"
         self._lang = "en"
         assert self._eos_token_id is not None
@@ -528,11 +529,12 @@ class SPARQLGenerator(corrector.TextCorrector):
                 values
             ):
                 decoding_states[idx].add(token_id, value)
-                decoding_states[idx].calc_sub_index(
-                    self._sparql_from_token_ids,
-                    self._kg,
-                    self._lang
-                )
+                if self._subgraph_constraining:
+                    decoding_states[idx].calc_sub_index(
+                        self._sparql_from_token_ids,
+                        self._kg,
+                        self._lang
+                    )
 
             return token_ids, scores
 
@@ -612,11 +614,12 @@ class SPARQLGenerator(corrector.TextCorrector):
                     beam = Beam.from_beam(beams[idx], log_p, token_id)
                     state: DecodingState = beam.info["state"]
                     state.add(token_id, top_k_values[idx])
-                    state.calc_sub_index(
-                        self._sparql_from_token_ids,
-                        self._kg,
-                        self._lang
-                    )
+                    if self._subgraph_constraining:
+                        state.calc_sub_index(
+                            self._sparql_from_token_ids,
+                            self._kg,
+                            self._lang
+                        )
                     candidate_beams.append(beam)
                 batch_candidates.append(candidate_beams)
 
@@ -772,6 +775,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         strategy: str = "greedy",
         beam_width: int = 5,
         sample_top_k: int = 5,
+        subgraph_constraining: bool = False,
         kg: str = "wikidata",
         lang: str = "en",
         use_cache: bool = True,
@@ -780,6 +784,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._strategy = strategy
         self._beam_width = beam_width
         self._sample_top_k = sample_top_k
+        self._subgraph_constraining = subgraph_constraining
         assert kg in KNOWLEDGE_GRAPHS
         self._kg = kg
         self._lang = lang
