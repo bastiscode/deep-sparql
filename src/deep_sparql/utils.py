@@ -328,7 +328,7 @@ SPARQL_NEWLINE = {
 
 
 def _insert_newlines_before_keywords(query: str) -> str:
-    for keyword in SPARQL_KEYWORDS:
+    for keyword in SPARQL_NEWLINE:
         query = re.sub(
             rf"\b{keyword}\b",
             lambda m: "\n" + m.group(0),
@@ -338,15 +338,36 @@ def _insert_newlines_before_keywords(query: str) -> str:
     return query
 
 
-def uppercase_sparql_keywords(query: str) -> str:
-    for keyword in SPARQL_KEYWORDS:
-        query = re.sub(
-            rf"\b{keyword}\b",
-            lambda m: m.group(0).upper(),
-            query,
-            flags=re.IGNORECASE
-        )
-    return query
+def _uppercase_sparql_keywords(query: str) -> str:
+    start_idx = 0
+    new_query = ""
+    # uppercase only outside of var, ent, and prop fields
+    for match in re.finditer(
+        r"<bov>.+?<eov>|<boe>.+?<eoe>|<bop>.+?<eop>",
+        query
+    ):
+        query_part = query[start_idx:match.start()]
+        for keyword in SPARQL_KEYWORDS:
+            query_part = re.sub(
+                rf"\b{keyword}\b",
+                lambda m: m.group(0).upper(),
+                query_part,
+                flags=re.IGNORECASE
+            )
+        new_query += query_part + match.group(0)
+        start_idx = match.end()
+    # dont forget the rest of the query
+    if start_idx < len(query):
+        query_part = query[start_idx:]
+        for keyword in SPARQL_KEYWORDS:
+            query_part = re.sub(
+                rf"\b{keyword}\b",
+                lambda m: m.group(0).upper(),
+                query_part,
+                flags=re.IGNORECASE
+            )
+        new_query += query_part
+    return new_query
 
 
 def _pretty_format_sparql(query: str) -> str:
@@ -375,8 +396,8 @@ def format_sparql(
     prefixes: list[str] | None = None,
     pretty: bool = False
 ) -> str:
-    # always upper case sparql keywords
-    sparql = uppercase_sparql_keywords(sparql)
+    # always uppercase sparql keywords
+    sparql = _uppercase_sparql_keywords(sparql)
 
     # save existing prefixes for later
     existing_prefixes = []
