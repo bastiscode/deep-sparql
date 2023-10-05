@@ -807,7 +807,10 @@ def get_completions(
         pattern = re.compile(pattern)
 
         for res in result.results:
-            value = next(pattern.finditer(res[var].value), None)
+            rec = res.get(var)
+            if rec is None:
+                continue
+            value = next(pattern.finditer(rec.value), None)
             if value is None:
                 continue
             results.append(prefix + value.group(1))
