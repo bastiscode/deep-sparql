@@ -145,6 +145,8 @@ class SPARQLGenerationTrainer(Trainer):
             cfg.get("search", "greedy"),
             cfg.get("beam_width", 5),
             cfg.get("sample_top_k", 5),
+            cfg.get("subgraph_constraining", False),
+            cfg.get("kg", "wikidata"),
         )
         self.logger.info(
             f"[step {self.total_step}] "
@@ -159,7 +161,6 @@ class SPARQLGenerationTrainer(Trainer):
             f"benchmarking model on {limit} validation samples"
         )
         log_n = cfg.get("log_n_samples", 8)
-        kg = cfg.get("kg", "wikidata")
         batch_size = cfg.get("batch_size", None)
         scores = []
         tok = gen.output_tokenizer
@@ -198,7 +199,7 @@ class SPARQLGenerationTrainer(Trainer):
                     )
             if gen.has_kg_indices:
                 predictions = [
-                    gen.prepare_sparql_query(output, kg)
+                    gen.prepare_sparql_query(output)
                     for output in outputs
                 ]
                 targets = []
@@ -209,7 +210,6 @@ class SPARQLGenerationTrainer(Trainer):
                             token_ids[num_pfx:len(token_ids) - num_sfx],
                             False
                         ).strip(),
-                        kg
                     )
                     targets.append(target)
                 for p, t in zip(predictions, targets):

@@ -1,6 +1,6 @@
 limit: env(BENCHMARK_LIMIT:128)
-entity_index: data/prefix-index/env(KG:wikidata)-llama-entities.bin
-property_index: data/prefix-index/env(KG:wikidata)-llama-properties.bin
+entity_index: data/prefix-index/env(KG:wikidata)-entities.bin
+property_index: data/prefix-index/env(KG:wikidata)-properties.bin
 search: env(SEARCH:beam)
 beam_width: env(BEAM_WIDTH:4)
 batch_size: eval(env(BATCH_LIMIT:8) // env(BEAM_WIDTH:4))
