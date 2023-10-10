@@ -508,7 +508,6 @@ class SPARQLGenerator(corrector.TextCorrector):
         ) -> Tuple[torch.Tensor, torch.Tensor]:
             conts = torch.ones(
                 *scores.shape,
-                device=scores.device,
                 dtype=torch.bool
             )
             conts[..., self.output_tokenizer.vocab_size():] = False
@@ -520,7 +519,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states
             )
 
-            scores[torch.logical_not(conts.to(scores.device))] = float("-inf")
+            scores[torch.logical_not(conts)] = float("-inf")
             token_ids = torch.argmax(scores, -1)
             scores = torch.gather(scores, -1, token_ids[:, None]).squeeze(-1)
 
@@ -576,7 +575,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 decoding_states
             )
 
-            scores[torch.logical_not(conts.to(scores.device))] = float("-inf")
+            scores[torch.logical_not(conts)] = float("-inf")
 
             num_beams = [len(b) for b in batch_beams]
             assert scores.ndim == 2 and scores.shape[0] == sum(num_beams)
