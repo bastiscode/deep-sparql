@@ -773,6 +773,7 @@ def get_completions(
     property_index: prefix.Vec,
     kg: str = "wikidata",
     lang: str = "en",
+    max_size: int = 8192
 ) -> list[str] | None:
     assert current_state in {"subject", "predicate", "object"}
     additional_constraints = None
@@ -792,6 +793,7 @@ def get_completions(
     if completion is None:
         return None
     sparql, var = completion
+    sparql += f" LIMIT {max_size + 1}"
 
     # replace entities and properties and format sparql
     sparql = prepare_sparql_query(
@@ -814,6 +816,9 @@ def get_completions(
     try:
         result = query_qlever(sparql, kg)
     except Exception:
+        return None
+
+    if len(result.results) > max_size:
         return None
 
     if kg == "wikidata":

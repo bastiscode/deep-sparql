@@ -153,7 +153,8 @@ class DecodingState:
         self,
         sparql_fn: Callable[[list[int]], str],
         kg: str = "wikidata",
-        lang: str = "en"
+        lang: str = "en",
+        max_size: int = 8192
     ):
         if (
             self._sub_index is not None
@@ -191,7 +192,8 @@ class DecodingState:
             self._ent_index,
             self._prop_index,
             kg,
-            lang
+            lang,
+            max_size
         )
         if values is None or len(values) == 0:
             return
