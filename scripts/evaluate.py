@@ -81,10 +81,20 @@ def evaluate(args: argparse.Namespace):
         ):
             if args.save_invalid and f1 is None:
                 with open(args.save_invalid, "a", encoding="utf8") as f:
-                    f.write(f"{inputs[i]}\n{predictions[i]}\n{targets[i]}\n\n")
+                    f.write(
+                        f"{i+1}.\n"
+                        f"input : {inputs[i]}\n"
+                        f"pred  : {predictions[i]}\n"
+                        f"target: {targets[i]}\n\n"
+                    )
             if args.save_incorrect and f1 is not None and f1 < 1.0:
                 with open(args.save_incorrect, "a", encoding="utf8") as f:
-                    f.write(f"{inputs[i]}\n{predictions[i]}\n{targets[i]}\n\n")
+                    f.write(
+                        f"{i+1}.\n"
+                        f"input : {inputs[i]}\n"
+                        f"pred  : {predictions[i]}\n"
+                        f"target: {targets[i]}\n\n"
+                    )
 
             if pred_inv:
                 pred_invalid += 1
