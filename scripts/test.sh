@@ -21,7 +21,7 @@ prop_index=${PROP_INDEX:-data/prefix-index/wikidata-properties.bin}
 cmd="deep-sparql -e $experiment -f $input -o $output \
 --search-strategy $strategy --beam-width $beam_width \
 -E $ent_index -P $prop_index \
--b $batch_size"
+-b $batch_size --progress --report"
 
 if [[ $subgraph == true ]]; then
   cmd="$cmd --subgraph-constraining"
