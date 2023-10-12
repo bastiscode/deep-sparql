@@ -11,12 +11,12 @@
 experiment=${EXPERIMENT?"env var EXPERIMENT not found"}
 input=${INPUT?"env var INPUT not found"}
 output=${OUTPUT?"env var OUTPUT not found"}
-strategy=${STRATEGY:beam}
-beam_width=${BEAM_WIDTH:5}
-batch_size=${BATCH_SIZE:16}
-subgraph=${SUBGRAPH:false}
-ent_index=${ENT_INDEX:data/prefix-index/wikidata-entities.bin}
-prop_index=${PROP_INDEX:data/prefix-index/wikidata-properties.bin}
+strategy=${STRATEGY:-beam}
+beam_width=${BEAM_WIDTH:-5}
+batch_size=${BATCH_SIZE:-16}
+subgraph=${SUBGRAPH:-false}
+ent_index=${ENT_INDEX:-data/prefix-index/wikidata-entities.bin}
+prop_index=${PROP_INDEX:-data/prefix-index/wikidata-properties.bin}
 
 cmd="deep-sparql -e $experiment -f $input -o $output \
 --search-strategy $strategy --beam-width $beam_width \
