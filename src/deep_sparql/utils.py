@@ -8,10 +8,7 @@ from tqdm import tqdm
 from text_correction_utils import prefix, tokenization, text
 from text_correction_utils.api.table import generate_table
 
-SELECT_REGEX = r"SELECT\s+(.*)\s+WHERE"
-WHERE_REGEX = r"WHERE\s*{(.*)}"
-
-SPARQL_PREFIX = "Generate a SPARQL query over for"
+VAR_REGEX = re.compile(r"\?(\w+)")
 
 QLEVER_URLS = {
     "wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
@@ -74,30 +71,39 @@ def load_inverse_index(path: str) -> Dict[str, List[str]]:
         return index
 
 
+REP = list[tuple[str, str]]
+
+
 def _replace(
     s: str,
     pattern: str,
     replacement_fn: Callable[[str], str],
-) -> Tuple[str, List[str]]:
+) -> tuple[str, REP]:
     org_len = len(s)
     len_diff = 0
-    matches = []
+    replacements = []
     for match in re.finditer(pattern, s):
         replacement = replacement_fn(match.group(1))
-        matches.append(match.group(1).strip())
+        replacements.append((match.group(1).strip(), replacement))
         start = match.start() + len_diff
         end = match.end() + len_diff
         s = s[:start] + replacement + s[end:]
         len_diff = len(s) - org_len
-    return s, list(set(matches))
+    return s, replacements
 
 
 def replace_vars(
     s: str,
     open: str = "<bov>",
     close: str = "<eov>"
-) -> Tuple[str, List[str]]:
-    return _replace(s, f"{open}(.+?){close}", lambda v: f"?{v.strip()}")
+) -> tuple[str, REP]:
+    open = re.escape(open)
+    close = re.escape(close)
+    return _replace(
+        s,
+        f"{open}(.+?){close}",
+        lambda v: f"?{v.strip()}"
+    )
 
 
 def replace_entities(
@@ -105,12 +111,14 @@ def replace_entities(
     index: prefix.Vec,
     open: str = "<boe>",
     close: str = "<eoe>"
-) -> str:
+) -> tuple[str, REP]:
+    open = re.escape(open)
+    close = re.escape(close)
     return _replace(
         s,
         f"{open}(.+?){close}",
         lambda e: f"{index.get(e.encode('utf8'))}"
-    )[0]
+    )
 
 
 def replace_properties(
@@ -118,24 +126,26 @@ def replace_properties(
     index: prefix.Vec,
     open: str = "<bop>",
     close: str = "<eop>"
-) -> str:
+) -> tuple[str, REP]:
+    open = re.escape(open)
+    close = re.escape(close)
     return _replace(
         s,
         f"{open}(.+?){close}",
         lambda p: f"{index.get(p.encode('utf8'))}"
-    )[0]
+    )
 
 
-TOKEN_PAIR = Tuple[str, str]
+TOKEN_PAIR = tuple[str, str]
 
 
 def clean_sparql(
     s: str,
-    special_tokens: Tuple[Tuple[str, str], ...] = (
+    special_tokens: tuple[tuple[str, str], ...] = (
         ("<bob>", "{"),
         ("<eob>", "}"),
     ),
-    special_token_pairs: Tuple[Tuple[TOKEN_PAIR, TOKEN_PAIR], ...] = ()
+    special_token_pairs: tuple[tuple[TOKEN_PAIR, TOKEN_PAIR], ...] = ()
 ) -> str:
     for tok, rep in special_tokens:
         s = s.replace(tok, rep)
@@ -323,7 +333,14 @@ SPARQL_KEYWORDS = [
 ]
 
 SPARQL_NEWLINE = {
-    "PREFIX", "SELECT", "OPTIONAL", "FILTER", "ORDER BY", "GROUP BY", "LIMIT"
+    "PREFIX",
+    "SELECT",
+    "OPTIONAL",
+    "FILTER",
+    "VALUES",
+    "ORDER BY",
+    "GROUP BY",
+    "LIMIT"
 }
 
 
@@ -437,12 +454,55 @@ def prepare_sparql_query(
     entity_special_tokens: Tuple[str, str] = ("<boe>", "<eoe>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
     kg: str | None = None,
-    pretty: bool = False
+    pretty: bool = False,
+    post_fn: Callable[[str, REP, REP, REP], str] | None = None,
 ) -> str:
-    s, _ = replace_vars(s, *var_special_tokens)
-    s = replace_entities(s, entity_index, *entity_special_tokens)
-    s = replace_properties(s, property_index, *property_special_tokens)
-    return format_sparql(s, get_prefixes(kg), pretty)
+    s, vars = replace_vars(s, *var_special_tokens)
+    s, ents = replace_entities(s, entity_index, *entity_special_tokens)
+    s, props = replace_properties(s, property_index, *property_special_tokens)
+    if post_fn is not None:
+        s = post_fn(s, vars, ents, props)
+        s = re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
+    s = format_sparql(s, get_prefixes(kg), pretty)
+    return s
+
+
+def _qlever_ask_to_select_post_fn(
+    s: str,
+    vars: REP,
+    ents: REP,
+    props: REP
+) -> str:
+    # qlever does not support ask queries yet,
+    # so we transform ask to select
+    ask_match = re.search(
+        r"^(?:\s*PREFIX\s+\w+:\s*<.*?>)*\s*(\bASK\b\s+\bWHERE\b)\s*{(.*)}",
+        s,
+        flags=re.IGNORECASE
+    )
+    if ask_match is None:
+        # return if not a ask query
+        return s
+    if len(vars) > 0:
+        # we have some variables,
+        # so it is enough to replace ask where with select * where
+        return s[:ask_match.start(1)] + "SELECT * WHERE" + s[ask_match.end(1):]
+    else:
+        reps = ents or props
+        if len(reps) == 0:
+            # should not happen, except for malformed queries
+            return s
+        # we have no variables, so we need to introduce one
+        # to make qlever happy
+        _, rep = reps[0]
+        var = _get_unique_var_name()
+
+        prefix = s[:ask_match.start(1)] + "SELECT ?" + var + \
+            " WHERE" + s[ask_match.end(1):ask_match.start(2)]
+        body = s[ask_match.start(2):ask_match.end(2)]
+        values_clause = f" VALUES ?{var} {{ {rep} }}"
+        body = body.replace(rep, f"?{var}", 1)
+        return prefix + body + values_clause + s[ask_match.end(2):]
 
 
 class SPARQLRecord:
@@ -482,25 +542,10 @@ class SPARQLResult:
         return f"SPARQLResult({self.vars}, {self.results})"
 
 
-def _ask_to_select(sparql: str) -> str:
-    # helper function that transforms a ASK WHERE query
-    # to a SELECT * WHERE query because ASK is not yet
-    # supported by QLever, does not work in all cases
-    # because an ASK query might have 0 variables
-    return re.sub(
-        r"\bask\b\s+\bwhere\b",
-        "SELECT * WHERE",
-        sparql,
-        flags=re.IGNORECASE,
-        count=1
-    )
-
-
 def query_qlever(
     sparql_query: str,
     kg: str = "wikidata"
 ) -> SPARQLResult:
-    sparql_query = _ask_to_select(sparql_query)
     response = requests.get(
         QLEVER_URLS[kg],
         params={"query": sparql_query}
@@ -800,14 +845,13 @@ def get_completions(
         sparql,
         entity_index,
         property_index,
-        kg=kg
+        kg=kg,
+        post_fn=_qlever_ask_to_select_post_fn
     )
-    # replace outermost ASK WHERE with SELECT * WHERE
-    sparql = _ask_to_select(sparql)
     # replace SELECT ... WHERE with SELECT DISTINCT ?var WHERE
     # in outermost SELECT
     sparql = re.sub(
-        r"\bselect\b\s+.*?\s+\bwhere\b",
+        r"\bSELECT\b\s+.*?\s+\bWHERE\b",
         f"SELECT DISTINCT ?{var} WHERE",
         sparql,
         flags=re.IGNORECASE,

@@ -37,6 +37,7 @@ from deep_sparql.model import (
 )
 from deep_sparql.utils import (
     KNOWLEDGE_GRAPHS,
+    REP,
     format_input,
     clean_sparql,
     format_sparql,
@@ -419,6 +420,7 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     def to(self, device: Device) -> "SPARQLGenerator":
         self.devices = get_devices(device)
+        assert isinstance(self.model, Model)
         self.model = self.model.distribute(self.devices)
         return self
 
@@ -922,7 +924,8 @@ class SPARQLGenerator(corrector.TextCorrector):
     def prepare_sparql_query(
         self,
         output: str,
-        pretty: bool = False
+        pretty: bool = False,
+        post_fn: Callable[[str, REP, REP, REP], str] | None = None
     ) -> str:
         if not self.has_kg_indices:
             return format_sparql(output, pretty=pretty)
@@ -931,7 +934,8 @@ class SPARQLGenerator(corrector.TextCorrector):
             self._entity_index,
             self._property_index,
             kg=self._kg,
-            pretty=pretty
+            pretty=pretty,
+            post_fn=post_fn
         )
 
     def prepare_questions(

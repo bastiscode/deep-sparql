@@ -16,7 +16,7 @@ from deep_sparql.utils import (
     load_inverse_index,
     format_input,
     format_sparql,
-    uppercase_sparql_keywords
+    VAR_REGEX
 )
 from deep_sparql.vector import Index, get_nearest_neighbors
 
@@ -228,7 +228,6 @@ PREFIX_REGEX = re.compile(
     r"(prefix\s+\S+:\s*<.+?>)",
     flags=re.IGNORECASE | re.DOTALL
 )
-VAR_REGEX = re.compile(r"\?(\w+)")
 WIKIDATA_ENT_REGEX = re.compile(r"\b(wd:Q\d+)\b")
 WIKIDATA_PROP_REGEX = re.compile(r"((?:wdt|p|pq|pqn|ps|psn):P\d+)")
 FREEBASE_ENT_REGEX = re.compile(r"(fb:m\.\w+)")

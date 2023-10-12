@@ -13,7 +13,8 @@ from deep_sparql.utils import (
     query_qlever,
     format_sparql,
     format_qlever_result,
-    add_labels
+    add_labels,
+    _qlever_ask_to_select_post_fn
 )
 
 
@@ -30,7 +31,8 @@ class SPARQLCli(TextCorrectionCli):
         execute = execute and self.cor.has_kg_indices
         query = self.cor.prepare_sparql_query(
             item.text,
-            execute or self.args.correct is not None
+            execute or self.args.correct is not None,
+            _qlever_ask_to_select_post_fn if execute else None
         )
         if not execute:
             yield query
@@ -239,4 +241,8 @@ def main():
         action="store_true",
         help="Execute the generated query with labels and show the results"
     )
-    SPARQLCli(parser.parse_args()).run()
+    args = parser.parse_args()
+    # set default device to auto if not set
+    # (different from underlying library which sets a single gpu as default)
+    args.device = args.device or "auto"
+    SPARQLCli(args).run()

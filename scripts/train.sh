@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-gpu=8
 #SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
-#SBATCH --job-name=model
+#SBATCH --job-name=train
 #SBATCH --open-mode=append
 #SBATCH --mail-type=BEGIN,END,FAIL,REQUEUE
 #SBATCH --time=24:00:00
