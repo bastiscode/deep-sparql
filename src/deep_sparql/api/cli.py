@@ -53,7 +53,7 @@ class SPARQLCli(TextCorrectionCli):
             nl = "\n" if self.args.interactive else ""
             yield f"Result:\n{formatted}" + nl
         except Exception as e:
-            yield f"query execution failed: {e}"
+            yield f"execution failed with {type(e).__name__}: {e}"
 
     def setup_corrector(self) -> TextCorrector:
         cor = super().setup_corrector()
