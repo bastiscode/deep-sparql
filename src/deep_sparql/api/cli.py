@@ -52,7 +52,7 @@ class SPARQLCli(TextCorrectionCli):
             formatted = format_qlever_result(result)
             nl = "\n" if self.args.interactive else ""
             yield f"Result:\n{formatted}" + nl
-        except RuntimeError as e:
+        except Exception as e:
             yield f"query execution failed: {e}"
 
     def setup_corrector(self) -> TextCorrector:
@@ -66,6 +66,7 @@ class SPARQLCli(TextCorrectionCli):
             subgraph_constraining=self.args.subgraph_constraining,
             kg=self.args.kg,
             lang=self.args.lang or "en",
+            max_length=self.args.max_length,
             use_cache=not self.args.no_kv_cache
         )
 
@@ -205,6 +206,12 @@ def main():
         choices=["wikidata", "freebase", "dbpedia"],
         default="wikidata",
         help="knowledge graph to use"
+    )
+    parser.add_argument(
+        "--max-length",
+        type=int,
+        default=None,
+        help="Maximum supported input/output length in tokens"
     )
     parser.add_argument(
         "-E", "--entity-index",

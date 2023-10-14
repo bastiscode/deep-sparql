@@ -290,7 +290,10 @@ class SPARQLGenerator(corrector.TextCorrector):
 
     @property
     def max_length(self) -> int:
-        return max(512, self.cfg["train"]["data"]["max_length"])
+        return (
+            self._max_length
+            or self.cfg["train"]["data"].get("max_length", 512)
+        )
 
     @property
     def context_length(self) -> int:
@@ -389,6 +392,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         self._subgraph_constraining = False
         self._kg = "wikidata"
         self._lang = "en"
+        self._max_length = None
         assert self._eos_token_id is not None
 
         self._entity_index = None
@@ -781,6 +785,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         subgraph_constraining: bool = False,
         kg: str = "wikidata",
         lang: str = "en",
+        max_length: int | None = None,
         use_cache: bool = True,
     ) -> None:
         assert strategy in ["greedy", "beam", "sample"]
@@ -791,6 +796,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         assert kg in KNOWLEDGE_GRAPHS
         self._kg = kg
         self._lang = lang
+        self._max_length = max_length
         self._use_cache = use_cache
 
     def set_indices(
