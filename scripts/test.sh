@@ -15,13 +15,15 @@ strategy=${STRATEGY:-beam}
 beam_width=${BEAM_WIDTH:-5}
 batch_size=${BATCH_SIZE:-16}
 subgraph=${SUBGRAPH:-false}
+max_length=${MAX_LENGTH:-512}
 ent_index=${ENT_INDEX:-data/prefix-index/wikidata-entities.bin}
 prop_index=${PROP_INDEX:-data/prefix-index/wikidata-properties.bin}
 
 cmd="deep-sparql -e $experiment -f $input -o $output \
 --search-strategy $strategy --beam-width $beam_width \
 -E $ent_index -P $prop_index \
--b $batch_size --progress --report"
+-b $batch_size --max-length $max_length \
+--progress --report"
 
 if [[ $subgraph == true ]]; then
   cmd="$cmd --subgraph-constraining"
