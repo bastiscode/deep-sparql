@@ -10,6 +10,7 @@ from deep_sparql import version
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.api.server import SPARQLServer
 from deep_sparql.utils import (
+    KNOWLEDGE_GRAPHS,
     query_qlever,
     format_sparql,
     format_qlever_result,
@@ -41,13 +42,18 @@ class SPARQLCli(TextCorrectionCli):
         yield f"Output:\n{format_sparql(item.text, pretty=True)}\n"
         yield f"Query:\n{query}\n"
         try:
-            result = query_qlever(query)
+            result = query_qlever(
+                query,
+                self.args.kg,
+                self.args.qlever_endpoint
+            )
             if self.args.execute_with_labels:
                 add_labels(
                     result,
                     query,
                     item.language or "en",
-                    self.args.kg
+                    self.args.kg,
+                    self.args.qlever_endpoint
                 )
             formatted = format_qlever_result(result)
             nl = "\n" if self.args.interactive else ""
@@ -203,7 +209,7 @@ def main():
     )
     parser.add_argument(
         "--kg",
-        choices=["wikidata", "freebase", "dbpedia"],
+        choices=list(KNOWLEDGE_GRAPHS),
         default="wikidata",
         help="knowledge graph to use"
     )
@@ -236,6 +242,12 @@ def main():
         type=int,
         default=3,
         help="Number of examples to use for each question"
+    )
+    parser.add_argument(
+        "--qlever-endpoint",
+        type=str,
+        default=None,
+        help="URL to QLever endpoint to use for query execution"
     )
     execution = parser.add_mutually_exclusive_group()
     execution.add_argument(

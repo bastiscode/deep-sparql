@@ -9,6 +9,7 @@ from text_correction_utils.io import load_text_file
 
 
 from deep_sparql.utils import (
+    KNOWLEDGE_GRAPHS,
     calc_f1
 )
 
@@ -23,11 +24,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-n", "--num-processes", type=int, default=4)
     parser.add_argument("--allow-subset", action="store_true")
     parser.add_argument("--empty-target-invalid", action="store_true")
+    parser.add_argument(
+        "--kg",
+        type=str,
+        choices=list(KNOWLEDGE_GRAPHS),
+        default="wikidata"
+    )
+    parser.add_argument("--qlever-endpoint", type=str, default=None)
     return parser.parse_args()
 
 
 def calc_f1_map(
-    args: Tuple[str, str, bool]
+    args: Tuple[str, str, bool, str, str | None]
 ) -> Tuple[Optional[float], bool, bool]:
     return calc_f1(*args)
 
@@ -71,7 +79,9 @@ def evaluate(args: argparse.Namespace):
                 zip(
                     predictions,
                     targets,
-                    len(targets) * [not args.empty_target_invalid]
+                    len(targets) * [not args.empty_target_invalid],
+                    len(targets) * [args.kg],
+                    len(targets) * [args.qlever_endpoint]
                 ),
                 chunksize=16
             )),

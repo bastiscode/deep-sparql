@@ -544,10 +544,13 @@ class SPARQLResult:
 
 def query_qlever(
     sparql_query: str,
-    kg: str = "wikidata"
+    kg: str = "wikidata",
+    qlever_endpoint: str | None = None
 ) -> SPARQLResult:
+    if qlever_endpoint is None:
+        qlever_endpoint = QLEVER_URLS[kg]
     response = requests.get(
-        QLEVER_URLS[kg],
+        qlever_endpoint,
         params={"query": sparql_query}
     )
     json = response.json()
@@ -583,7 +586,8 @@ def add_labels(
     result: SPARQLResult,
     sparql: str,
     lang: str = "en",
-    kg: str = "wikidata"
+    kg: str = "wikidata",
+    qlever_endpoint: str | None = None
 ):
     if kg == "wikidata":
         ent_url = "http://www.wikidata.org/entity/"
@@ -632,7 +636,7 @@ def add_labels(
         f"SELECT {label_var_str} WHERE {{ " \
         f"{{ {sub_sparql} }} {label_filter} }} "
 
-    label_result = query_qlever(query, kg)
+    label_result = query_qlever(query, kg, qlever_endpoint)
     for i, record in enumerate(label_result.results):
         for var, l_var in zip(vars, label_vars):
             if l_var not in record:
@@ -739,9 +743,13 @@ def format_input(
     )
 
 
-def query_entities(sparql: str) -> Optional[Set[Tuple[str, ...]]]:
+def query_entities(
+    sparql: str,
+    kg: str = "wikidata",
+    qlever_endpoint: str | None = None
+) -> Optional[Set[Tuple[str, ...]]]:
     try:
-        result = query_qlever(sparql)
+        result = query_qlever(sparql, kg, qlever_endpoint)
         if len(result) == 0:
             return set()
         return set(
@@ -758,10 +766,12 @@ def query_entities(sparql: str) -> Optional[Set[Tuple[str, ...]]]:
 def calc_f1(
     pred: str,
     target: str,
-    allow_empty_target: bool = True
+    allow_empty_target: bool = True,
+    kg: str = "wikidata",
+    qlever_endpoint: str | None = None
 ) -> Tuple[Optional[float], bool, bool]:
-    pred_set = query_entities(pred)
-    target_set = query_entities(target)
+    pred_set = query_entities(pred, kg, qlever_endpoint)
+    target_set = query_entities(target, kg, qlever_endpoint)
     if pred_set is None or target_set is None:
         return None, pred_set is None, target_set is None
     if len(target_set) == 0 and not allow_empty_target:
