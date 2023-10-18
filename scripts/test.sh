@@ -11,6 +11,7 @@
 experiment=${EXPERIMENT?"env var EXPERIMENT not found"}
 input=${INPUT?"env var INPUT not found"}
 output=${OUTPUT?"env var OUTPUT not found"}
+endpoint=${ENDPOINT:-https://qlever.cs.uni-freiburg.de/api/wikidata}
 strategy=${STRATEGY:-beam}
 beam_width=${BEAM_WIDTH:-5}
 batch_size=${BATCH_SIZE:-16}
@@ -23,6 +24,7 @@ cmd="deep-sparql -e $experiment -f $input -o $output \
 --search-strategy $strategy --beam-width $beam_width \
 -E $ent_index -P $prop_index \
 -b $batch_size --max-length $max_length \
+--qlever-endpoint $endpoint \
 --progress --report"
 
 if [[ $subgraph == true ]]; then
