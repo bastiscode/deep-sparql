@@ -9,9 +9,9 @@ import yaml
 from peft.peft_model import PeftModel
 from peft.tuners.ia3 import IA3Model
 from peft.tuners.lora import LoraModel
-from text_correction_utils.configuration import (
-    load_config
-)
+
+
+from text_utils.configuration import load_config
 
 
 from deep_sparql.api.generator import SPARQLGenerator

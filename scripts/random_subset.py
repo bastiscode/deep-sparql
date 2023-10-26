@@ -3,7 +3,7 @@ import argparse
 import os
 
 
-from text_correction_utils import io
+from text_utils import io
 
 
 def parse_args() -> argparse.Namespace:

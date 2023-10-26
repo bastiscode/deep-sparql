@@ -9,8 +9,8 @@ from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 
-from text_correction_utils.api.trainer import ShardingPolicy
-from text_correction_utils.api import utils
+from text_utils.api.trainer import ShardingPolicy
+from text_utils.api import utils
 from torch.utils.hooks import RemovableHandle
 
 

@@ -3,7 +3,7 @@ import os
 
 from deep_sparql import SPARQLGenerator
 
-from text_correction_utils import prefix
+from text_utils import prefix
 
 
 def parse_args() -> argparse.Namespace:

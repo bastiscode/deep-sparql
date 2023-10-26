@@ -5,8 +5,8 @@ from typing import Dict, List, Callable, Tuple, Optional, Set
 
 from tqdm import tqdm
 
-from text_correction_utils import prefix, tokenization, text
-from text_correction_utils.api.table import generate_table
+from text_utils import prefix, tokenization, text
+from text_utils.api.table import generate_table
 
 VAR_REGEX = re.compile(r"\?(\w+)")
 

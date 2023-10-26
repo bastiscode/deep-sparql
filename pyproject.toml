@@ -1,6 +1,6 @@
 [project]
-name = "deep-sparql"
-version = "0.1.0"
+name = "deep_sparql"
+version = "0.2.0"
 description = "Generate SPARQL queries with Deep Learning Models from natural language questions."
 authors = [
     { name = "Sebastian Walter", email = "swalter@cs.uni-freiburg.de" }
@@ -20,8 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "text-correction-utils>=0.1.4",
-    "auto-gptq>=0.4.0",
+    "dtpu>=0.2.0",
 ]
 
 [project.scripts]

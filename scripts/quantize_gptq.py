@@ -8,11 +8,11 @@ import yaml
 from peft.peft_model import PeftModel
 from peft.tuners.ia3 import IA3Model
 from peft.tuners.lora import LoraModel
-from text_correction_utils.configuration import (
+from text_utils.configuration import (
     load_config
 )
 
-from text_correction_utils.io import load_text_file
+from text_utils.io import load_text_file
 
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.model import QUANTIZATION_SCHEMES, PretrainedDecoder

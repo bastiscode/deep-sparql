@@ -4,15 +4,15 @@ from typing import Dict, Any
 
 from flask import Response, jsonify, request, abort
 
-from text_correction_utils.api.server import TextCorrectionServer, Error
-from text_correction_utils.api.utils import ProgressIterator
+from text_utils.api.server import TextProcessingServer, Error
+from text_utils.api.utils import ProgressIterator
 
 from deep_sparql.api.generator import SPARQLGenerator
 from deep_sparql.utils import format_sparql
 
 
-class SPARQLServer(TextCorrectionServer):
-    text_corrector_cls = SPARQLGenerator
+class SPARQLServer(TextProcessingServer):
+    text_processor_cls = SPARQLGenerator
 
     def __init__(self, config: Dict[str, Any]):
         assert "feedback_file" in config, "missing feedback_file in config"
@@ -30,18 +30,18 @@ class SPARQLServer(TextCorrectionServer):
                 name = cfg["path"]
             else:
                 name = cfg["name"]
-            cor_name = self.name_to_text_corrector[name]
-            cor = self.text_correctors[cor_name]
-            assert isinstance(cor, SPARQLGenerator)
+            gen_name = self.name_to_text_processor[name]
+            gen = self.text_processors[gen_name]
+            assert isinstance(gen, SPARQLGenerator)
             example_index = cfg.get("example_index", None)
-            cor.set_indices(
+            gen.set_indices(
                 cfg["entity_index"],
                 cfg["property_index"],
                 example_index
             )
             self.logger.info(
                 f"loaded indices from {cfg['entity_index']} "
-                f"and {cfg['property_index']} for {cor_name}"
+                f"and {cfg['property_index']} for {gen_name}"
             )
 
         @self.server.route(f"{self.base_url}/feedback", methods=["POST"])
@@ -84,7 +84,7 @@ class SPARQLServer(TextCorrectionServer):
             lang = json.get("lang", "en")
 
             try:
-                with self.text_corrector(json["model"]) as cor:
+                with self.text_processor(json["model"]) as cor:
                     if isinstance(cor, Error):
                         return abort(cor.to_response())
                     assert isinstance(cor, SPARQLGenerator)

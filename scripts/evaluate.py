@@ -5,7 +5,7 @@ from multiprocessing import Pool
 
 from tqdm import tqdm
 
-from text_correction_utils.io import load_text_file
+from text_utils.io import load_text_file
 
 
 from deep_sparql.utils import (

@@ -2,9 +2,9 @@ import os
 from io import TextIOWrapper
 from typing import Iterator, Optional, Union, Iterable
 
-from text_correction_utils.api.cli import TextCorrectionCli
-from text_correction_utils.api.corrector import TextCorrector
-from text_correction_utils import data
+from text_utils.api.cli import TextProcessingCli
+from text_utils.api.processor import TextProcessor
+from text_utils import data
 
 from deep_sparql import version
 from deep_sparql.api.generator import SPARQLGenerator
@@ -19,9 +19,9 @@ from deep_sparql.utils import (
 )
 
 
-class SPARQLCli(TextCorrectionCli):
-    text_corrector_cls = SPARQLGenerator
-    text_correction_server_cls = SPARQLServer
+class SPARQLCli(TextProcessingCli):
+    text_processor_cls = SPARQLGenerator
+    text_processing_server_cls = SPARQLServer
 
     def version(self) -> str:
         return version.__version__
@@ -61,11 +61,11 @@ class SPARQLCli(TextCorrectionCli):
         except Exception as e:
             yield f"execution failed with {type(e).__name__}: {e}"
 
-    def setup_corrector(self) -> TextCorrector:
-        cor = super().setup_corrector()
+    def setup(self) -> TextProcessor:
+        gen = super().setup()
         # perform some additional setup
-        assert isinstance(cor, SPARQLGenerator)
-        cor.set_inference_options(
+        assert isinstance(gen, SPARQLGenerator)
+        gen.set_inference_options(
             strategy=self.args.search_strategy,
             beam_width=self.args.beam_width,
             sample_top_k=self.args.sample_top_k,
@@ -117,22 +117,22 @@ class SPARQLCli(TextCorrectionCli):
         ):
             self.args.example_index = example_index
 
-        cor.set_indices(
+        gen.set_indices(
             self.args.entity_index,
             self.args.property_index,
             self.args.example_index
         )
-        return cor
+        return gen
 
-    def correct_iter(
+    def process_iter(
         self,
-        corrector: SPARQLGenerator,
+        processor: SPARQLGenerator,
         iter: Iterator[data.InferenceData]
     ) -> Iterator[data.InferenceData]:
-        yield from corrector.generate_iter(
+        yield from processor.generate_iter(
             (
                 (
-                    corrector.prepare_questions(
+                    processor.prepare_questions(
                         [data.text],
                         self.args.n_examples,
                     )[0],
@@ -148,9 +148,9 @@ class SPARQLCli(TextCorrectionCli):
             show_progress=self.args.progress
         )
 
-    def correct_file(
+    def process_file(
         self,
-        corrector: SPARQLGenerator,
+        processor: SPARQLGenerator,
         path: str,
         lang: Optional[str],
         out_file: Union[str, TextIOWrapper]
@@ -158,7 +158,7 @@ class SPARQLCli(TextCorrectionCli):
         # disable execution for file input
         self.args.execute_with_labels = False
         self.args.execute = False
-        corrector.generate_file(
+        processor.generate_file(
             path,
             self.args.input_format,
             out_file,

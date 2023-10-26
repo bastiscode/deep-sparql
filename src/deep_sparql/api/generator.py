@@ -8,16 +8,15 @@ import torch
 from torch import nn
 from peft import get_peft_model
 
-from text_correction_utils import data, tokenization, prefix
-from text_correction_utils.api.corrector import ModelInfo
-from text_correction_utils.api import corrector
-from text_correction_utils.api.utils import (
+from text_utils import data, tokenization, prefix
+from text_utils.api.processor import ModelInfo, TextProcessor
+from text_utils.api.utils import (
     Device,
     device_info,
     get_devices,
     get_peft_config
 )
-from text_correction_utils.inference import (
+from text_utils.inference import (
     Beam,
     BeamSelectFn,
     IdxSelectFn,
@@ -48,7 +47,7 @@ from deep_sparql.utils import (
 )
 
 _BASE_URL = "https://ad-publications.informatik.uni-freiburg.de/" \
-    "ACL_whitespace_correction_transformer_BHW_2023.materials"
+    "ACL_whitespace_procession_transformer_BHW_2023.materials"
 _NAME_TO_ZIP = {
 }
 
@@ -243,7 +242,7 @@ class DecodingState:
         return copied
 
 
-class SPARQLGenerator(corrector.TextCorrector):
+class SPARQLGenerator(TextProcessor):
     task = "SPARQL generation"
 
     @classmethod
@@ -901,7 +900,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         progress_unit = "seq"
 
         if sort:
-            outputs = self._correct_sorted(
+            outputs = self._process_sorted(
                 loader,
                 progress_desc,
                 progress_total,
@@ -909,7 +908,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             )
         else:
-            outputs = self._correct_unsorted(
+            outputs = self._process_unsorted(
                 loader,
                 progress_desc,
                 progress_total,
@@ -1000,7 +999,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         progress_unit = "byte"
 
         if sort:
-            output = self._correct_sorted(
+            output = self._process_sorted(
                 loader,
                 progress_desc,
                 progress_total,
@@ -1008,7 +1007,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             )
         else:
-            output = self._correct_unsorted(
+            output = self._process_unsorted(
                 loader,
                 progress_desc,
                 progress_total,
@@ -1060,7 +1059,7 @@ class SPARQLGenerator(corrector.TextCorrector):
         progress_unit = "byte"
 
         if sort:
-            outputs = iter(self._correct_sorted(
+            outputs = iter(self._process_sorted(
                 loader,
                 progress_desc,
                 progress_total,
@@ -1068,7 +1067,7 @@ class SPARQLGenerator(corrector.TextCorrector):
                 show_progress
             ))
         else:
-            outputs = self._correct_unsorted(
+            outputs = self._process_unsorted(
                 loader,
                 progress_desc,
                 progress_total,

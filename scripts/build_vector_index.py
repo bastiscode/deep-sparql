@@ -3,7 +3,7 @@ import argparse
 
 import torch
 
-from text_correction_utils import io
+from text_utils import io
 from deep_sparql.model import PRETRAINED_ENCODERS
 
 
