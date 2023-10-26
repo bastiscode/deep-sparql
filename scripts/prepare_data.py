@@ -16,7 +16,6 @@ from deep_sparql.utils import (
     load_inverse_index,
     format_input,
     format_sparql,
-    uppercase_sparql_keywords,
     VAR_REGEX
 )
 from deep_sparql.vector import Index, get_nearest_neighbors
