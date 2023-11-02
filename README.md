@@ -15,7 +15,7 @@ pip install spelling-correction
 #### From source
 
 ```bash
-git clone git@github.com:ad-freiburg/spelling-correction.git
+git clone git@github.com:bastiscode/deep-sparql.git
 cd spelling-correction 
 pip install .
 
