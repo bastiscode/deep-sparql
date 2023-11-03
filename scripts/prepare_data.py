@@ -64,6 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--var-begin", type=str, default="<bov>")
     parser.add_argument("--var-end", type=str, default="<eov>")
     parser.add_argument("--entity-index", type=str, default=None)
+    parser.add_argument("--entity-redirects", type=str, default=None)
     parser.add_argument("--property-index", type=str, default=None)
     parser.add_argument("--inverse-index", type=str, default=None)
     parser.add_argument("--example-index", type=str, default=None)
@@ -332,6 +333,7 @@ def prepare(args: argparse.Namespace):
     if args.entity_index is not None:
         entity_index, entity_redir = load_kg_index(
             args.entity_index,
+            args.entity_redirects,
             args.progress
         )
     else:
@@ -340,7 +342,7 @@ def prepare(args: argparse.Namespace):
     if args.property_index is not None:
         property_index, _ = load_kg_index(
             args.property_index,
-            args.progress
+            progress=args.progress
         )
     else:
         property_index = None

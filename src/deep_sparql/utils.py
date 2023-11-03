@@ -24,13 +24,13 @@ KNOWLEDGE_GRAPHS = {
 
 
 def load_kg_index(
-    path: str,
+    index_path: str,
+    redirects_path: str | None = None,
     progress: bool = False
 ) -> Tuple[Dict[str, List[str]], Dict[str, str]]:
-    num_lines, _ = text.file_size(path)
-    with open(path, "r", encoding="utf8") as f:
+    num_lines, _ = text.file_size(index_path)
+    with open(index_path, "r", encoding="utf8") as f:
         index = {}
-        redirect = {}
         for line in tqdm(
             f,
             total=num_lines,
@@ -39,21 +39,36 @@ def load_kg_index(
             leave=False
         ):
             split = line.strip().split("\t")
-            assert len(split) >= 3
+            assert len(split) >= 2
             obj_id = split[0].strip()
-            redirects = [
-                redir for redir in split[1].strip().split(";")
-                if redir.strip() != ""
-            ]
-            obj_names = [n.strip() for n in split[2:]]
+            obj_names = [n.strip() for n in split[1:]]
             assert obj_id not in index, \
                 f"duplicate id {obj_id}"
             index[obj_id] = obj_names
-            for red in redirects:
-                assert red not in redirect, \
-                    f"duplicate redirect {red}"
-                redirect[red] = obj_id
-        return index, redirect
+
+    if redirects_path is None:
+        return index, {}
+
+    num_lines, _ = text.file_size(redirects_path)
+    with open(redirects_path, "r", encoding="utf8") as f:
+        redirect = {}
+        for line in tqdm(
+            f,
+            total=num_lines,
+            desc="loading kg redirects",
+            disable=not progress,
+            leave=False
+        ):
+            split = line.strip().split("\t")
+            assert len(split) >= 2
+            obj_id = split[0].strip()
+            for redir in split[1:]:
+                redir = redir.strip()
+                assert redir not in redirect, \
+                    f"duplicate redirect {redir}, should not happen"
+                redirect[redir] = obj_id
+
+    return index, redirect
 
 
 def load_inverse_index(path: str) -> Dict[str, List[str]]:
