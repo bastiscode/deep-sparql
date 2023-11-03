@@ -170,13 +170,24 @@ def clean_sparql(
             lambda m: f"{rep_first}{m.group(2).strip()}{rep_second}",
             s
         )
-    return re.sub(r"\s+", " ", s, flags=re.DOTALL).strip()
+    return re.sub(r"\s+", " ", s, flags=re.MULTILINE).strip()
 
 
 def general_prefixes() -> list[str]:
     return [
+        "PREFIX bd: <http://www.bigdata.com/rdf#>",
+        "PREFIX cc: <http://creativecommons.org/ns#>",
+        "PREFIX dct: <http://purl.org/dc/terms/>",
+        "PREFIX geo: <http://www.opengis.net/ont/geosparql#>",
+        "PREFIX hint: <http://www.bigdata.com/queryHints#>",
+        "PREFIX ontolex: <http://www.w3.org/ns/lemon/ontolex#>",
+        "PREFIX owl: <http://www.w3.org/2002/07/owl#>",
+        "PREFIX prov: <http://www.w3.org/ns/prov#>",
+        "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
         "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>",
-        "PREFIX wikibase: <http://wikiba.se/ontology#>",
+        "PREFIX schema: <http://schema.org/>",
+        "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>",
+        "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>",
     ]
 
 
@@ -191,6 +202,7 @@ def wikidata_prefixes() -> list[str]:
         "PREFIX pq: <http://www.wikidata.org/prop/qualifier/>",
         "PREFIX pqn: <http://www.wikidata.org/prop/qualifier/"
         "value-normalized/>",
+        "PREFIX wikibase: <http://wikiba.se/ontology#>"
     ]
 
 
