@@ -154,7 +154,7 @@ class DecodingState:
         sparql_fn: Callable[[list[int]], str],
         kg: str = "wikidata",
         lang: str = "en",
-        max_size: int = 8192
+        max_size: int = 65536
     ):
         if (
             self._sub_index is not None
