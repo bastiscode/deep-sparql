@@ -32,7 +32,7 @@ class SPARQLCli(TextProcessingCli):
         execute = execute and self.cor.has_kg_indices
         query = self.cor.prepare_sparql_query(
             item.text,
-            execute or self.args.correct is not None,
+            execute or self.args.process is not None,
             _qlever_ask_to_select_post_fn if execute else None
         )
         if not execute:
