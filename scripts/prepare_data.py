@@ -247,7 +247,14 @@ def prepare_sparqls(
     entity_index: Dict[str, List[str]],
     entity_redir: Dict[str, str],
     property_index: Dict[str, List[str]],
-    args: argparse.Namespace
+    bracket_begin: str,
+    bracket_end: str,
+    var_begin: str,
+    var_end: str,
+    entity_begin: str,
+    entity_end: str,
+    property_begin: str,
+    property_end: str
 ) -> Optional[List[str]]:
     if kg == "wikidata":
         ent_regex = WIKIDATA_ENT_REGEX
@@ -258,13 +265,13 @@ def prepare_sparqls(
     # replace variables
     sparql = re.sub(
         VAR_REGEX,
-        lambda m: surround(m.group(1), args.var_begin, args.var_end),
+        lambda m: surround(m.group(1), var_begin, var_end),
         sparql
     )
 
     # replace brackets
-    sparql = sparql.replace("{", args.bracket_begin)
-    sparql = sparql.replace("}", args.bracket_end)
+    sparql = sparql.replace("{", bracket_begin)
+    sparql = sparql.replace("}", bracket_end)
 
     # get entities
     try:
@@ -276,7 +283,7 @@ def prepare_sparqls(
             ents.append((
                 ent,
                 [
-                    surround(e, args.entity_begin, args.entity_end)
+                    surround(e, entity_begin, entity_end)
                     for e in
                     reversed(entity_index[ent])
                 ]
@@ -291,7 +298,7 @@ def prepare_sparqls(
             (
                 match.group(),
                 [
-                    surround(p, args.property_begin, args.property_end)
+                    surround(p, property_begin, property_end)
                     for p in
                     reversed(property_index[match.group(1)])
                 ]
@@ -468,7 +475,14 @@ def prepare(args: argparse.Namespace):
                     entity_index,
                     entity_redir,
                     property_index,
-                    args
+                    args.bracket_begin,
+                    args.bracket_end,
+                    args.var_begin,
+                    args.var_end,
+                    args.entity_begin,
+                    args.entity_end,
+                    args.property_begin,
+                    args.property_end
                 )
                 if sparqls is None:
                     num_invalid += 1
