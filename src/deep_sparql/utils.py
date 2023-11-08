@@ -59,7 +59,7 @@ def load_kg_index(
             disable=not progress,
             leave=False
         ):
-            split = line.strip().split("\t")
+            split = line.split("\t")
             assert len(split) >= 2
             obj_id = split[0].strip()
             for redir in split[1:]:
