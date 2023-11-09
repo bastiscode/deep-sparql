@@ -17,7 +17,7 @@ out=${OUT?"env var OUT not found"}
 cmd="$text_utils/scripts/create_prefix_vec.py --file $index --out $out"
 
 tokenizer_cfg=${TOKENIZER_CFG:-""}
-if [[ -z $tokenizer_cfg ]]; then
+if [[ $tokenizer_cfg != "" ]]; then
     cmd="$cmd --tokenizer-cfg $tokenizer_cfg"
 fi
 
