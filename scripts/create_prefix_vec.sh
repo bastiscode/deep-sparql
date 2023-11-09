@@ -9,7 +9,7 @@
 #SBATCH --time=4:00:00
 
 script_dir=$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}')
-script_dir=$(dirname script_dir)
+script_dir=$(dirname $script_dir)
 text_utils=$script_dir/../third_party/text-utils
 
 index=${INDEX?"env var INDEX not found"}
