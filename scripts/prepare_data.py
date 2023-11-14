@@ -278,7 +278,10 @@ def prepare_sparqls(
         ents = []
         for match in re.finditer(ent_regex, sparql):
             ent = match.group(1)
-            if ent not in entity_index:
+            while (
+                ent not in entity_index
+                and entity_redir.get(ent, ent) != ent
+            ):
                 ent = entity_redir[ent]
             ents.append((
                 ent,
