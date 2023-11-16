@@ -137,7 +137,10 @@ def prepare(args: argparse.Namespace):
         num_total += total
         num_invalid += invalid
 
-    print(f"{num_invalid / num_total:.1%}")
+    print(
+        f"{num_invalid:,} / {num_total:,} invalid "
+        f"({num_invalid / num_total:.1%}, organic_only={args.organic_only})"
+    )
 
 
 def parse_args() -> argparse.Namespace:
