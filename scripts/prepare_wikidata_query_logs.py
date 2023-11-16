@@ -1,7 +1,6 @@
 import argparse
 import re
 import os
-import shutil
 from urllib.parse import unquote_plus
 
 from tqdm import tqdm
@@ -40,6 +39,7 @@ def prepare_file(
 
     clean_pattern = re.compile(r"\s+", flags=re.MULTILINE)
 
+    seen = set()
     num_lines, _ = text.file_size(file)
     with open(file, "r", encoding="utf8") as f:
         _ = next(f)  # forward headers
@@ -51,6 +51,9 @@ def prepare_file(
             leave=False
         ):
             sparql, _, source, _ = line.strip().split("\t")
+            if args.organic_only and source != "organic":
+                continue
+
             sparql = clean_pattern.sub(" ", unquote_plus(sparql)).strip()
             prefixes = []
             for prefix, (short, pattern) in patterns.items():
@@ -74,6 +77,11 @@ def prepare_file(
             if match is not None:
                 num_invalid += 1
                 continue
+
+            if sparql in seen:
+                num_invalid += 1
+                continue
+            seen.add(sparql)
 
             sparql = " ".join(prefixes) + " " + sparql
             sparqls = prepare_sparqls(
@@ -151,6 +159,7 @@ def parse_args() -> argparse.Namespace:
         "--progress",
         action="store_true"
     )
+    parser.add_argument("--organic-only", action="store_true")
     parser.add_argument("--entity-index", type=str, required=True)
     parser.add_argument("--entity-redirects", type=str, default=None)
     parser.add_argument("--property-index", type=str, required=True)
