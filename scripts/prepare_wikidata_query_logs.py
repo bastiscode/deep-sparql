@@ -71,13 +71,10 @@ def prepare_file(
             num_total += 1
 
             match = general_obj_pattern.search(sparql)
-            if match is not None:
+            if match is not None or sparql in seen:
                 num_invalid += 1
                 continue
 
-            if sparql in seen:
-                num_invalid += 1
-                continue
             seen.add(sparql)
 
             sparql = " ".join(prefixes) + " " + sparql
