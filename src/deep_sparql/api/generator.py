@@ -37,7 +37,6 @@ from deep_sparql.model import (
 from deep_sparql.utils import (
     KNOWLEDGE_GRAPHS,
     REP,
-    QLEVER_URLS,
     format_input,
     clean_sparql,
     format_sparql,
