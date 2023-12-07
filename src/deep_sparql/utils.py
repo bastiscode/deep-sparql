@@ -536,8 +536,8 @@ def _qlever_ask_to_select_post_fn(
 class SPARQLRecord:
     def __init__(
         self,
-        value: str,
-        data_type: str,
+        value: str | None,
+        data_type: str | None,
         label: Optional[str] = None
     ):
         self.value = value
@@ -545,13 +545,16 @@ class SPARQLRecord:
         self.label = label
 
     def __repr__(self) -> str:
-        if self.data_type == "uri":
+        if self.data_type is None:
+            return ""
+        elif self.data_type == "uri":
+            assert self.value is not None
             last = self.value.split("/")[-1]
             if self.label is not None:
                 return f"{self.label} ({last})"
             return last
         else:
-            return self.label or self.value
+            return self.label or self.value or ""
 
 
 class SPARQLResult:
@@ -596,7 +599,8 @@ def query_qlever(
     for binding in json["results"]["bindings"]:
         result = {}
         for var in vars:
-            if var not in binding:
+            if binding is None or var not in binding:
+                result[var] = SPARQLRecord(None, None)
                 continue
             value = binding[var]
             result[var] = SPARQLRecord(
@@ -670,7 +674,8 @@ def add_labels(
     label_result = query_qlever(query, kg, qlever_endpoint)
     for i, record in enumerate(label_result.results):
         for var, l_var in zip(vars, label_vars):
-            if l_var not in record:
+            rec = record.get(l_var, None)
+            if rec is None or rec.value is None:
                 continue
             result.results[i][var].label = record[l_var].value
 
