@@ -10,10 +10,11 @@ from text_utils.api.table import generate_table
 
 VAR_REGEX = re.compile(r"\?(\w+)")
 
+QLEVER_API = "https://qlever.cs.uni-freiburg.de/api"
 QLEVER_URLS = {
-    "wikidata": "https://qlever.cs.uni-freiburg.de/api/wikidata",
-    "dbpedia": "https://qlever.cs.uni-freiburg.de/api/dbpedia",
-    "freebase": "https://qlever.cs.uni-freiburg.de/api/freebase",
+    "wikidata": f"{QLEVER_API}/wikidata",
+    "dbpedia": f"{QLEVER_API}/dbpedia",
+    "freebase": f"{QLEVER_API}/freebase",
 }
 
 KNOWLEDGE_GRAPHS = {
@@ -575,10 +576,13 @@ def query_qlever(
     qlever_endpoint: str | None = None
 ) -> SPARQLResult:
     if qlever_endpoint is None:
+        assert kg in QLEVER_URLS, \
+            f"no QLever endpoint for knowledge graph {kg}"
         qlever_endpoint = QLEVER_URLS[kg]
-    response = requests.get(
+    response = requests.post(
         qlever_endpoint,
-        params={"query": sparql_query}
+        headers={"Content-type": "application/sparql-query"},
+        data=sparql_query
     )
     json = response.json()
     if response.status_code != 200:
@@ -854,6 +858,7 @@ def get_completions(
     entity_index: prefix.Vec,
     property_index: prefix.Vec,
     kg: str = "wikidata",
+    qlever_endpoint: str | None = None,
     lang: str = "en",
     max_size: int = 8192
 ) -> list[str] | None:
@@ -895,7 +900,7 @@ def get_completions(
         count=1
     )
     try:
-        result = query_qlever(sparql, kg)
+        result = query_qlever(sparql, kg, qlever_endpoint)
     except Exception:
         return None
 

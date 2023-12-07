@@ -37,6 +37,7 @@ from deep_sparql.model import (
 from deep_sparql.utils import (
     KNOWLEDGE_GRAPHS,
     REP,
+    QLEVER_URLS,
     format_input,
     clean_sparql,
     format_sparql,
@@ -153,6 +154,7 @@ class DecodingState:
         self,
         sparql_fn: Callable[[list[int]], str],
         kg: str = "wikidata",
+        qlever_endpoint: str | None = None,
         lang: str = "en",
         max_size: int = 65536
     ):
@@ -192,6 +194,7 @@ class DecodingState:
             self._ent_index,
             self._prop_index,
             kg,
+            qlever_endpoint,
             lang,
             max_size
         )
@@ -389,6 +392,7 @@ class SPARQLGenerator(TextProcessor):
         self._sample_top_k = 5
         self._use_cache = True
         self._subgraph_constraining = False
+        self._qlever_endpoint: str | None = None
         self._kg = "wikidata"
         self._lang = "en"
         self._max_length = None
@@ -539,6 +543,7 @@ class SPARQLGenerator(TextProcessor):
                     decoding_states[idx].calc_sub_index(
                         self._sparql_from_token_ids,
                         self._kg,
+                        self._qlever_endpoint,
                         self._lang
                     )
 
@@ -624,6 +629,7 @@ class SPARQLGenerator(TextProcessor):
                         state.calc_sub_index(
                             self._sparql_from_token_ids,
                             self._kg,
+                            self._qlever_endpoint,
                             self._lang
                         )
                     candidate_beams.append(beam)
@@ -786,6 +792,7 @@ class SPARQLGenerator(TextProcessor):
         lang: str = "en",
         max_length: int | None = None,
         use_cache: bool = True,
+        qlever_endpoint: str | None = None
     ) -> None:
         assert strategy in ["greedy", "beam", "sample"]
         self._strategy = strategy
@@ -794,6 +801,7 @@ class SPARQLGenerator(TextProcessor):
         self._subgraph_constraining = subgraph_constraining
         assert kg in KNOWLEDGE_GRAPHS
         self._kg = kg
+        self._qlever_endpoint = qlever_endpoint
         self._lang = lang
         self._max_length = max_length
         self._use_cache = use_cache

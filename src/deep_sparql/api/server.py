@@ -24,7 +24,9 @@ class SPARQLServer(TextProcessingServer):
             os.makedirs(feedback_dir, exist_ok=True)
 
         for cfg in config["models"]:
-            if "entity_index" not in cfg or "property_index" not in cfg:
+            ent_idx = cfg.get("entity_index", None)
+            prop_idx = cfg.get("property_index", None)
+            if ent_idx is None or prop_idx is None:
                 continue
             if "path" in cfg:
                 name = cfg["path"]
@@ -33,15 +35,14 @@ class SPARQLServer(TextProcessingServer):
             gen_name = self.name_to_text_processor[name]
             gen = self.text_processors[gen_name]
             assert isinstance(gen, SPARQLGenerator)
-            example_index = cfg.get("example_index", None)
             gen.set_indices(
-                cfg["entity_index"],
-                cfg["property_index"],
-                example_index
+                ent_idx,
+                prop_idx,
+                cfg.get("example_index", None)
             )
             self.logger.info(
-                f"loaded indices from {cfg['entity_index']} "
-                f"and {cfg['property_index']} for {gen_name}"
+                f"loaded indices from {ent_idx} "
+                f"and {prop_idx} for {gen_name}"
             )
 
         @self.server.route(f"{self.base_url}/feedback", methods=["POST"])
@@ -79,26 +80,28 @@ class SPARQLServer(TextProcessingServer):
             beam_width = json.get("beam_width", 5)
             sample_top_k = json.get("sample_top_k", 5)
             subgraph_constraining = json.get("subgraph_constraining", False)
+            qlever_endpoint = json.get("qlever_endpoint", None)
             n_examples = json.get("num_examples", 3)
             kg = json.get("kg", "wikidata")
             lang = json.get("lang", "en")
 
             try:
-                with self.text_processor(json["model"]) as cor:
-                    if isinstance(cor, Error):
-                        return abort(cor.to_response())
-                    assert isinstance(cor, SPARQLGenerator)
-                    cor.set_inference_options(
+                with self.text_processor(json["model"]) as gen:
+                    if isinstance(gen, Error):
+                        return abort(gen.to_response())
+                    assert isinstance(gen, SPARQLGenerator)
+                    gen.set_inference_options(
                         strategy=search_strategy,
                         beam_width=beam_width,
                         sample_top_k=sample_top_k,
                         subgraph_constraining=subgraph_constraining,
                         kg=kg,
                         lang=lang,
-                        use_cache=self.use_cache
+                        use_cache=self.use_cache,
+                        qlever_endpoint=qlever_endpoint
                     )
                     start = time.perf_counter()
-                    questions = cor.prepare_questions(
+                    questions = gen.prepare_questions(
                         [q.strip() for q in json["questions"]],
                         n_examples,
                         self.batch_size
@@ -109,15 +112,15 @@ class SPARQLServer(TextProcessingServer):
                     )
                     generated = []
                     sparql = []
-                    for item in cor.generate_iter(
+                    for item in gen.generate_iter(
                         iter,
                         batch_size=self.batch_size,
                         raw=True
                     ):
                         generated.append(format_sparql(item.text, pretty=True))
-                        if not cor.has_kg_indices:
+                        if not gen.has_kg_indices:
                             continue
-                        query = cor.prepare_sparql_query(
+                        query = gen.prepare_sparql_query(
                             item.text,
                             pretty=True
                         )
@@ -132,7 +135,7 @@ class SPARQLServer(TextProcessingServer):
                         "raw": generated,
                         "runtime": {"b": b, "s": s},
                     }
-                    if cor.has_kg_indices:
+                    if gen.has_kg_indices:
                         output["sparql"] = sparql
                     return jsonify(output)
 
