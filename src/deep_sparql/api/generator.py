@@ -548,12 +548,7 @@ class SPARQLGenerator(TextProcessor):
             batch_beams: List[List[Beam]],
             _: List[int]
         ) -> List[List[Beam]]:
-            conts = torch.ones(
-                *scores.shape,
-                dtype=torch.bool
-            )
-            conts[..., self.output_tokenizer.vocab_size():] = False
-            values: list[str | None] = [None for _ in range(len(conts))]
+            values: list[str | None] = [None for _ in range(len(scores))]
 
             decoding_states = []
             for beams in batch_beams:
@@ -570,13 +565,11 @@ class SPARQLGenerator(TextProcessor):
                         )
                     decoding_states.append(beam.info["state"])
 
-            conts, values = self._update_scores_and_values(
-                conts,
+            scores, values = self._update_scores_and_values(
+                scores,
                 values,
                 decoding_states
             )
-
-            scores[torch.logical_not(conts)] = float("-inf")
 
             num_beams = [len(b) for b in batch_beams]
             assert scores.ndim == 2 and scores.shape[0] == sum(num_beams)
