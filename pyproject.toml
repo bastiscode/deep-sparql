@@ -9,7 +9,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
-keywords = ["nlp", "text", "correction", "spelling"]
+keywords = ["nlp", "text", "SPARQL", "QA"]
 
 classifiers = [
     "Programming Language :: Python :: 3",

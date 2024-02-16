@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from peft import get_peft_model
 
-from text_utils import data, tokenization, prefix
+from text_utils import data, tokenization, continuations
 from text_utils.api.processor import ModelInfo, TextProcessor
 from text_utils.api.utils import (
     Device,
@@ -60,8 +60,8 @@ class DecodingState:
         ent_stop_ids: List[int],
         prop_start_ids: List[int],
         prop_stop_ids: List[int],
-        entity_index: prefix.Vec,
-        property_index: prefix.Vec
+        entity_index: continuations.Continuations,
+        property_index: continuations.Continuations
     ):
         self._token_ids = initial_token_ids
         self._initial_length = len(self._token_ids)
@@ -82,7 +82,7 @@ class DecodingState:
         # indices
         self._ent_index = entity_index
         self._prop_index = property_index
-        self._sub_index: prefix.Vec | None = None
+        self._sub_index: continuations.Continuations | None = None
 
     def is_ent_start(self) -> bool:
         return (
@@ -126,7 +126,7 @@ class DecodingState:
     def get_obj_token_ids(self) -> list[int]:
         return self._token_ids[self._start_idx:]
 
-    def get_index(self) -> prefix.Vec | None:
+    def get_index(self) -> continuations.Continuations | None:
         if self.is_ent():
             return self._sub_index or self._ent_index
         elif self.is_prop():
@@ -490,19 +490,17 @@ class SPARQLGenerator(TextProcessor):
                 token_ids,
                 False
             ).lstrip().encode("utf8")
-            mask, value = index.continuation_mask(prefix)
+            mask, value = index.continuation_indices(prefix)
             overlap, overlap_token_id = state.calc_overlap()
             valid_cont = (
                 (overlap == 0 and value is not None)
                 or
                 (overlap > 0 and state.has_value())
             )
-            mask[overlap_token_id] = valid_cont
-            cont_mask[i, :len(mask)] = torch.tensor(
-                mask,
-                dtype=torch.bool,
-                device=cont_mask.device
-            )
+            if valid_cont:
+                mask.append(overlap_token_id)
+            cont_mask[i, :] = False
+            cont_mask[i, torch.tensor(mask)] = True
             values[i] = value
         return cont_mask, values
 
@@ -807,29 +805,26 @@ class SPARQLGenerator(TextProcessor):
 
     def set_indices(
         self,
-        entity_index: Optional[Union[str, prefix.Vec]] = None,
-        property_index: Optional[Union[str, prefix.Vec]] = None,
+        entity_index: Optional[Union[str, continuations.Continuations]] = None,
+        property_index: Optional[Union[str,
+                                       continuations.Continuations]] = None,
         example_index: Optional[Union[str, vector.Index]] = None,
     ) -> None:
         if entity_index is not None:
             if isinstance(entity_index, str):
-                entity_index = prefix.Vec.load(entity_index)
+                entity_index = continuations.Continuations.load_with_continuations(
+                    entity_index,
+                    self._continuations
+                )
             self._entity_index = entity_index
-            self._entity_index.compute_memo(max_depth=3)  # type: ignore
-            self._entity_index.set_continuations(
-                self._continuations,
-                max_depth=1
-            )
 
         if property_index is not None:
             if isinstance(property_index, str):
-                property_index = prefix.Vec.load(property_index)
+                property_index = continuations.Continuations.load_with_continuations(
+                    property_index,
+                    self._continuations
+                )
             self._property_index = property_index
-            self._property_index.compute_memo(max_depth=3)  # type: ignore
-            self._property_index.set_continuations(
-                self._continuations,
-                max_depth=1
-            )
 
         if example_index is not None:
             if isinstance(example_index, str):
@@ -841,7 +836,7 @@ class SPARQLGenerator(TextProcessor):
         return self._entity_index is not None \
             and self._property_index is not None
 
-    def get_kg_indices(self) -> Optional[Tuple[prefix.Vec, prefix.Vec]]:
+    def get_kg_indices(self) -> Optional[Tuple[continuations.Continuations, continuations.Continuations]]:
         if self.has_kg_indices:
             return self._entity_index, self._property_index
         return None

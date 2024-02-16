@@ -5,7 +5,7 @@ from typing import Dict, List, Callable, Tuple, Optional, Set
 
 from tqdm import tqdm
 
-from text_utils import prefix, tokenization, text
+from text_utils import continuations, tokenization, text
 from text_utils.api.table import generate_table
 
 VAR_REGEX = re.compile(r"\?(\w+)")
@@ -124,7 +124,7 @@ def replace_vars(
 
 def replace_entities(
     s: str,
-    index: prefix.Vec,
+    index: continuations.Continuations,
     open: str = "<boe>",
     close: str = "<eoe>"
 ) -> tuple[str, REP]:
@@ -139,7 +139,7 @@ def replace_entities(
 
 def replace_properties(
     s: str,
-    index: prefix.Vec,
+    index: continuations.Continuations,
     open: str = "<bop>",
     close: str = "<eop>"
 ) -> tuple[str, REP]:
@@ -476,8 +476,8 @@ def format_sparql(
 
 def prepare_sparql_query(
     s: str,
-    entity_index: prefix.Vec,
-    property_index: prefix.Vec,
+    entity_index: continuations.Continuations,
+    property_index: continuations.Continuations,
     var_special_tokens: Tuple[str, str] = ("<bov>", "<eov>"),
     entity_special_tokens: Tuple[str, str] = ("<boe>", "<eoe>"),
     property_special_tokens: Tuple[str, str] = ("<bop>", "<eop>"),
@@ -860,8 +860,8 @@ def _autocomplete_sparql(
 def get_completions(
     sparql: str,
     current_state: str,
-    entity_index: prefix.Vec,
-    property_index: prefix.Vec,
+    entity_index: continuations.Continuations,
+    property_index: continuations.Continuations,
     kg: str = "wikidata",
     qlever_endpoint: str | None = None,
     lang: str = "en",
