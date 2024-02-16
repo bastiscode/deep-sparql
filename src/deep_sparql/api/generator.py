@@ -474,13 +474,13 @@ class SPARQLGenerator(TextProcessor):
             self._property_index
         )
 
-    def _update_cont_mask_and_values(
+    def _update_scores_and_values(
         self,
-        cont_mask: torch.Tensor,
+        scores: torch.Tensor,
         values: list[str | None],
         decoding_states: list[DecodingState],
     ) -> tuple[torch.Tensor, list[str | None]]:
-        assert cont_mask.shape[0] == len(values) == len(decoding_states)
+        assert scores.shape[0] == len(values) == len(decoding_states)
         for i, state in enumerate(decoding_states):
             index = state.get_index()
             if index is None:
@@ -499,10 +499,10 @@ class SPARQLGenerator(TextProcessor):
             )
             if valid_cont:
                 mask.append(overlap_token_id)
-            cont_mask[i, :] = False
-            cont_mask[i, torch.tensor(mask, dtype=torch.long)] = True
+            scores[i, :] -= 10_000.0
+            scores[i, torch.tensor(mask, dtype=torch.long)] += 10_000.0
             values[i] = value
-        return cont_mask, values
+        return scores, values
 
     def _index_select_fn(
         self,
@@ -512,20 +512,14 @@ class SPARQLGenerator(TextProcessor):
             scores: torch.Tensor,
             indices: List[int]
         ) -> Tuple[torch.Tensor, torch.Tensor]:
-            conts = torch.ones(
-                *scores.shape,
-                dtype=torch.bool
-            )
-            conts[..., self.output_tokenizer.vocab_size():] = False
-            values: list[str | None] = [None for _ in range(len(conts))]
+            values: list[str | None] = [None for _ in range(len(scores))]
 
-            conts, values = self._update_cont_mask_and_values(
-                conts,
+            scores, values = self._update_scores_and_values(
+                scores,
                 values,
                 decoding_states
             )
 
-            scores[torch.logical_not(conts)] = float("-inf")
             token_ids = torch.argmax(scores, -1)
             scores = torch.gather(scores, -1, token_ids[:, None]).squeeze(-1)
 
@@ -576,7 +570,7 @@ class SPARQLGenerator(TextProcessor):
                         )
                     decoding_states.append(beam.info["state"])
 
-            conts, values = self._update_cont_mask_and_values(
+            conts, values = self._update_scores_and_values(
                 conts,
                 values,
                 decoding_states
