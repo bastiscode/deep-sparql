@@ -38,6 +38,8 @@ from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.mistral.modeling_mistral import MistralDecoderLayer
 from transformers.models.mt5.modeling_mt5 import MT5Block
 from transformers.models.t5.modeling_t5 import T5Block
+from transformers.utils import logging as hf_logging
+hf_logging.disable_progress_bar()
 
 
 def _register_hook(
