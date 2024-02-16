@@ -500,7 +500,7 @@ class SPARQLGenerator(TextProcessor):
             if valid_cont:
                 mask.append(overlap_token_id)
             cont_mask[i, :] = False
-            cont_mask[i, torch.tensor(mask)] = True
+            cont_mask[i, torch.tensor(mask, dtype=torch.long)] = True
             values[i] = value
         return cont_mask, values
 
